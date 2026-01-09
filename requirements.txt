@@ -1,11 +1,6 @@
-fastapi==0.109.0
-uvicorn==0.27.0
-streamlit==1.30.0
-pandas==2.1.4
-numpy==1.26.3
-plotly==5.18.0
-scikit-learn==1.4.0
-statsmodels==0.14.1
-requests==2.31.0
-python-multipart==0.0.6
-pydantic==2.5.3
+streamlit>=1.30
+pandas>=2.2
+numpy>=1.24
+plotly>=5.18
+scikit-learn>=1.4
+statsmodels>=0.14
