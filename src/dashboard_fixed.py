@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import pickle
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.arima.model import ARIMA
-from datetime import timedelta
+from datetime import timedelta, datetime
 import numpy as np
-import yfinance as yf
 
 st.set_page_config(page_title="Stock Forecast Pro", layout="wide", page_icon="📈")
 
@@ -43,27 +41,63 @@ model_choice = st.sidebar.selectbox(
 
 forecast_days = st.sidebar.slider("Forecast Horizon (days)", 7, 90, 30)
 
-# Load real stock data
-@st.cache_data(ttl=3600)  # Cache for 1 hour
+# Load real stock data with better error handling
+@st.cache_data(ttl=7200)  # Cache for 2 hours to avoid rate limits
 def load_real_data(ticker_symbol):
     try:
-        with st.spinner(f"Fetching {ticker_symbol} data from Yahoo Finance..."):
-            # Get 5 years of data
+        import yfinance as yf
+        with st.spinner(f"Fetching {ticker_symbol} data..."):
+            # Get 5 years of data with timeout
             stock = yf.Ticker(ticker_symbol)
-            df = stock.history(period="5y")
+            df = stock.history(period="5y", timeout=10)
 
             if df.empty:
-                st.error(f"No data found for {ticker_symbol}")
-                return None
+                return None, "No data available for this ticker"
 
             df = df.reset_index()
             df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
             df['Date'] = pd.to_datetime(df['Date'])
 
-            return df
+            return df, None
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        return None
+        error_msg = str(e)
+        if "rate limit" in error_msg.lower() or "too many" in error_msg.lower():
+            return None, "⏰ Rate limit reached. Please wait a few minutes and refresh."
+        else:
+            return None, f"Error: {error_msg}"
+
+# Fallback: Load sample data if real data fails
+@st.cache_data
+def load_sample_data(ticker_symbol):
+    np.random.seed(hash(ticker_symbol) % 1000)
+    days = 1500
+    end_date = datetime(2026, 1, 8)
+    start_date = end_date - timedelta(days=days-1)
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+
+    # Generate realistic stock prices based on ticker
+    base_prices = {
+        "AAPL": 180, "TSLA": 250, "NVDA": 480, 
+        "GOOGL": 140, "MSFT": 380, "AMZN": 150,
+        "META": 380, "NFLX": 480
+    }
+    base = base_prices.get(ticker_symbol, 200)
+
+    trend = np.linspace(base * 0.7, base * 1.1, days)
+    seasonality = base * 0.05 * np.sin(np.linspace(0, 12*np.pi, days))
+    noise = np.random.normal(0, base * 0.02, days)
+    prices = trend + seasonality + noise
+    prices = np.maximum(prices, base * 0.5)  # Ensure positive prices
+
+    df = pd.DataFrame({
+        'Date': dates,
+        'Close': prices,
+        'Open': prices - np.random.uniform(0, base*0.01, days),
+        'High': prices + np.random.uniform(0, base*0.02, days),
+        'Low': prices - np.random.uniform(0, base*0.02, days),
+        'Volume': np.random.randint(10000000, 50000000, days)
+    })
+    return df
 
 # Train model
 @st.cache_resource
@@ -79,20 +113,26 @@ def train_model(model_type, data, ticker_symbol):
                 ).fit()
             else:  # ARIMA
                 model = ARIMA(data['Close'], order=(5,1,2)).fit()
-            return model
+            return model, None
         except Exception as e:
-            st.error(f"Model training failed: {e}")
-            return None
+            return None, f"Model training failed: {str(e)}"
 
-# Load data
-df = load_real_data(ticker)
+# Try to load real data first
+df, error = load_real_data(ticker)
+using_sample = False
+
+if df is None:
+    # Show warning and use sample data
+    st.warning(f"⚠️ {error} Using demo data instead.")
+    df = load_sample_data(ticker)
+    using_sample = True
 
 if df is not None and len(df) > 100:
     last_date = df['Date'].max()
     last_price = df['Close'].iloc[-1]
 
     # Train model
-    model = train_model(model_choice, df, ticker)
+    model, train_error = train_model(model_choice, df, ticker)
 
     if model is not None:
         # Generate forecast
@@ -100,14 +140,13 @@ if df is not None and len(df) > 100:
         forecast_dates = [last_date + timedelta(days=i) for i in range(1, forecast_days + 1)]
 
         # Calculate confidence intervals
-        std_estimate = df['Close'].std() * 0.1  # Dynamic based on volatility
+        std_estimate = df['Close'].std() * 0.1
         lower_bound = forecast - 1.96 * std_estimate
         upper_bound = forecast + 1.96 * std_estimate
 
         # Display metrics
         col1, col2, col3, col4, col5 = st.columns(5)
 
-        # Calculate price change
         prev_price = df['Close'].iloc[-2]
         price_change = last_price - prev_price
         price_change_pct = (price_change / prev_price) * 100
@@ -117,6 +156,9 @@ if df is not None and len(df) > 100:
         col3.metric("📅 Last Date", last_date.strftime('%Y-%m-%d'))
         col4.metric("🔮 Model", model_choice.replace('_', ' ').title())
         col5.metric("📈 Forecast Days", forecast_days)
+
+        if using_sample:
+            st.info("🎓 **Demo Mode**: Using simulated data for demonstration. Refresh in a few minutes for live data.")
 
         st.markdown("---")
 
@@ -189,8 +231,9 @@ if df is not None and len(df) > 100:
             hoverinfo='skip'
         ))
 
+        title_suffix = " (Demo Data)" if using_sample else ""
         fig.update_layout(
-            title=f'{ticker} Stock Price Forecast - {model_choice.replace("_", " ").title()}',
+            title=f'{ticker} Stock Price Forecast{title_suffix} - {model_choice.replace("_", " ").title()}',
             xaxis_title='Date',
             yaxis_title='Price ($)',
             hovermode='x unified',
@@ -240,9 +283,10 @@ if df is not None and len(df) > 100:
             # Trend indicator
             trend = "📈 Bullish" if pct_change_forecast > 0 else "📉 Bearish"
             st.markdown(f"**Forecast Trend:** {trend}")
-
+    else:
+        st.error(f"❌ {train_error}")
 else:
-    st.error("⚠️ Unable to load stock data. Please try again or select a different ticker.")
+    st.error("⚠️ Unable to load data. Please try refreshing the page.")
 
 # Sidebar info
 st.sidebar.markdown("---")
@@ -265,8 +309,8 @@ else:
     ''')
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 Data refreshes every hour")
-st.sidebar.success("🚀 **Powered by:** Yahoo Finance")
+st.sidebar.info("💡 Data refreshes every 2 hours")
+st.sidebar.success("🚀 **Powered by:** Yahoo Finance API")
 st.sidebar.markdown("---")
 st.sidebar.markdown("👨‍💻 **By:** Alfred So")
 st.sidebar.markdown("🔗 [GitHub](https://github.com/Donald8585)")
@@ -274,4 +318,4 @@ st.sidebar.markdown("💼 [LinkedIn](https://linkedin.com/in/alfred-so)")
 
 # Disclaimer
 st.sidebar.markdown("---")
-st.sidebar.warning("⚠️ **Disclaimer:** This is for educational purposes only. Not financial advice.")
+st.sidebar.warning("⚠️ **Disclaimer:** Educational purposes only. Not financial advice.")
