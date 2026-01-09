@@ -1,173 +1,306 @@
-# 📈 Stock Forecast ML Dashboard
+# 📈 Stock Price Forecasting Dashboard Pro
 
-Multi-model time series forecasting system with FastAPI backend and Streamlit frontend. Built with production-grade architecture for real-world deployment.
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://stock-forecast-donald8585.streamlit.app)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red.svg)](https://streamlit.io/)
+> **Multi-Model Time Series Forecasting System with Real-Time Stock Data**
 
-## 🎯 Features
+A production-ready machine learning dashboard that forecasts stock prices using multiple statistical models. Features real-time data integration, interactive visualizations, and intelligent error handling with fallback mechanisms.
 
-- **Multiple ML Models**: Exponential Smoothing (Holt-Winters) and ARIMA(5,1,2)
-- **RESTful API**: FastAPI backend with automatic OpenAPI documentation
-- **Interactive Dashboard**: Real-time forecasting with Streamlit
-- **Confidence Intervals**: 95% prediction intervals for all forecasts
-- **Model Comparison**: Switch between models and compare performance metrics
-- **Responsive Design**: Mobile-friendly interface with Plotly visualizations
+🔗 **[Live Demo](https://stock-forecast-donald8585.streamlit.app)** | 📊 **[LinkedIn](https://linkedin.com/in/alfred-so)** | 💻 **[More Projects](https://github.com/Donald8585)**
 
-## 🏗️ Architecture
+---
+
+## 🌟 Key Features
+
+- **🎯 Multi-Model Framework**: Compare Exponential Smoothing (Holt-Winters) and ARIMA(5,1,2) models
+- **📊 Real-Time Data**: Live stock prices from Yahoo Finance API with 5 years of historical data
+- **🔄 Smart Caching**: 2-hour cache mechanism to optimize API usage and performance
+- **🛡️ Resilient Architecture**: Automatic fallback to demo data during API rate limits
+- **📈 8 Major Stocks**: AAPL, TSLA, NVDA, GOOGL, MSFT, AMZN, META, NFLX
+- **🎨 Interactive Visualizations**: Dynamic Plotly charts with confidence intervals
+- **⚙️ Flexible Forecasting**: Adjustable horizon from 7 to 90 days
+- **📉 Statistical Insights**: 52-week highs/lows, volatility metrics, trend indicators
+
+---
+
+## 🖼️ Screenshots
+
+### Dashboard Overview
+![Dashboard](docs/dashboard-overview.png)
+
+### Forecast Visualization
+![Forecast](docs/forecast-chart.png)
+
+---
+
+## 🚀 Technologies Used
+
+| Category | Technologies |
+|----------|-------------|
+| **ML/Statistics** | Statsmodels, Scikit-learn, ARIMA, Exponential Smoothing |
+| **Data Processing** | Pandas, NumPy |
+| **Visualization** | Plotly, Streamlit |
+| **Data Source** | Yahoo Finance API (yfinance) |
+| **Deployment** | Streamlit Cloud |
+| **Version Control** | Git, GitHub |
+
+---
+
+## 📊 Models Implemented
+
+### 1. Exponential Smoothing (Holt-Winters)
+- **Trend**: Additive
+- **Seasonality**: Weekly (7 days)
+- **Best for**: Stocks with stable trends and seasonal patterns
+- **Parameters**: Auto-optimized
+
+### 2. ARIMA(5,1,2)
+- **AR (Autoregressive)**: 5 lags
+- **I (Integrated)**: 1st order differencing
+- **MA (Moving Average)**: 2 terms
+- **Best for**: Stationary time series data
+- **Use case**: Capturing short-term dependencies
+
+---
+
+## 🎯 Project Architecture
 
 ```
-stock-forecast-ml-dashboard/
-├── data/
-│   └── stock_data.csv          # Historical stock prices
-├── models/
-│   └── all_models.pkl          # Trained ML models
-├── src/
-│   ├── model_fixed.py          # Model training pipeline
-│   ├── api_fixed.py            # FastAPI backend
-│   └── dashboard_fixed.py      # Streamlit frontend
-├── requirements.txt
-├── Dockerfile
-└── README.md
+┌─────────────────────────────────────────────────────────┐
+│                    User Interface                       │
+│                  (Streamlit Dashboard)                  │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│              Data Layer (Cached)                        │
+│  ┌──────────────────┐      ┌─────────────────────┐    │
+│  │ Yahoo Finance API│ ───► │  Fallback Demo Data │    │
+│  └──────────────────┘      └─────────────────────┘    │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│                  ML Pipeline                            │
+│  ┌────────────────┐        ┌─────────────────────┐    │
+│  │ Exponential    │        │     ARIMA(5,1,2)    │    │
+│  │ Smoothing      │        │                     │    │
+│  └────────────────┘        └─────────────────────┘    │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│            Visualization & Analytics                    │
+│  • Interactive Plotly Charts                            │
+│  • Confidence Intervals (95%)                           │
+│  • Statistical Metrics                                  │
+│  • Trend Indicators                                     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+---
 
-### 1. Clone Repository
+## 🛠️ Installation & Setup
+
+### Prerequisites
+- Python 3.8+
+- pip package manager
+
+### Local Installation
+
 ```bash
+# Clone the repository
 git clone https://github.com/Donald8585/stock-forecast-ml-dashboard.git
 cd stock-forecast-ml-dashboard
-```
 
-### 2. Install Dependencies
-```bash
+# Create virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 3. Train Models
-```bash
-python src/model_fixed.py
-```
-
-### 4. Start API Server
-```bash
-python src/api_fixed.py
-```
-
-### 5. Launch Dashboard (New Terminal)
-```bash
+# Run the dashboard
 streamlit run src/dashboard_fixed.py
 ```
 
-Visit `http://localhost:8501` to see the dashboard!
+The dashboard will open automatically in your browser at `http://localhost:8501`
 
-## 📊 Models
+---
 
-### Exponential Smoothing (Holt-Winters)
-- **Type**: Additive trend + Additive seasonality
-- **Seasonality**: 7 days (weekly pattern)
-- **Best for**: Stable trends with regular patterns
-- **Performance**: MAPE ~12%, RMSE ~$25
+## 📖 Usage
 
-### ARIMA(5,1,2)
-- **Parameters**: 
-  - AR(5): 5 autoregressive lags
-  - I(1): First-order differencing
-  - MA(2): 2 moving average terms
-- **Best for**: Stationary time series
-- **Performance**: MAPE ~13%, RMSE ~$26
+1. **Select Stock**: Choose from 8 major stocks (AAPL, TSLA, NVDA, etc.)
+2. **Choose Model**: Select Exponential Smoothing or ARIMA
+3. **Set Forecast Horizon**: Adjust slider from 7 to 90 days
+4. **View Results**: Analyze forecast, confidence intervals, and statistics
+5. **Export Data**: Download forecast table for further analysis
 
-## 🔌 API Endpoints
+### Example Use Cases
 
-### `POST /forecast`
-Generate stock price forecast
+- **Investment Research**: Forecast potential price movements
+- **Portfolio Management**: Analyze multiple stocks simultaneously
+- **Academic Study**: Compare model performance on different assets
+- **ML Learning**: Understand time series forecasting techniques
 
-**Request Body:**
-```json
-{
-  "periods": 30,
-  "model": "exponential_smoothing"
-}
+---
+
+## 📂 Project Structure
+
+```
+stock-forecast-ml-dashboard/
+├── src/
+│   └── dashboard_fixed.py      # Main Streamlit application
+├── data/
+│   └── stock_data.csv          # Sample data (optional)
+├── docs/
+│   ├── dashboard-overview.png  # Screenshots
+│   └── forecast-chart.png
+├── requirements.txt            # Python dependencies
+├── README.md                   # Project documentation
+├── LICENSE                     # MIT License
+└── .streamlit/
+    └── config.toml            # Streamlit configuration
 ```
 
-**Response:**
-```json
-{
-  "dates": ["2026-01-09", "2026-01-10", ...],
-  "predictions": [184.5, 185.2, ...],
-  "lower_bound": [182.3, 183.0, ...],
-  "upper_bound": [186.7, 187.4, ...],
-  "model_used": "exponential_smoothing",
-  "last_historical_date": "2026-01-08",
-  "last_historical_price": 186.19
-}
+---
+
+## 🔧 Configuration
+
+### Caching Settings
+Data is cached for 2 hours to optimize API usage:
+```python
+@st.cache_data(ttl=7200)  # 2 hours
+def load_real_data(ticker_symbol):
+    ...
 ```
 
-### `GET /models`
-List available models with metrics
+### Model Parameters
+Modify model parameters in the training function:
+```python
+# Exponential Smoothing
+ExponentialSmoothing(
+    data['Close'],
+    seasonal_periods=7,    # Weekly seasonality
+    trend='add',           # Additive trend
+    seasonal='add'         # Additive seasonality
+)
 
-### `GET /metrics/{model_name}`
-Get specific model performance metrics
-
-### API Documentation
-Visit `http://localhost:8000/docs` for interactive Swagger UI
-
-## 🎨 Dashboard Features
-
-1. **Model Selection**: Choose between ES and ARIMA models
-2. **Forecast Horizon**: Adjust prediction period (7-90 days)
-3. **Performance Metrics**: Real-time MAPE, RMSE, and MAE
-4. **Interactive Charts**: Zoom, pan, and hover for details
-5. **Forecast Table**: Detailed predictions with confidence intervals
-6. **Key Statistics**: Price change and percentage change indicators
-
-## 🐳 Docker Deployment
-
-```bash
-# Build image
-docker build -t stock-forecast .
-
-# Run container
-docker run -p 8000:8000 -p 8501:8501 stock-forecast
+# ARIMA
+ARIMA(data['Close'], order=(5,1,2))
 ```
 
-## 📈 Results
+---
 
-| Model | MAPE | RMSE | MAE |
-|-------|------|------|-----|
-| Exponential Smoothing | 12.38% | $24.78 | $21.37 |
-| ARIMA(5,1,2) | 13.12% | $26.45 | $22.89 |
+## 📊 Performance Metrics
 
-## 🛠️ Tech Stack
+| Metric | Description | Typical Range |
+|--------|-------------|---------------|
+| **MAPE** | Mean Absolute Percentage Error | 5-15% |
+| **RMSE** | Root Mean Squared Error | $10-$30 |
+| **MAE** | Mean Absolute Error | $8-$25 |
+| **R²** | Coefficient of Determination | 0.85-0.95 |
 
-- **Backend**: FastAPI, Uvicorn
-- **Frontend**: Streamlit, Plotly
-- **ML Libraries**: Statsmodels, Scikit-learn
-- **Data Processing**: Pandas, NumPy
-- **Python**: 3.8+
+*Note: Actual performance varies by stock and market conditions*
+
+---
+
+## 🚦 API Rate Limiting
+
+Yahoo Finance has rate limits on their free tier:
+- **Limit**: ~2,000 requests/hour
+- **Solution**: 2-hour caching + automatic fallback to demo data
+- **User Experience**: Seamless transition with clear messaging
+
+When rate limit is reached:
+```
+⚠️ Rate limit reached. Using demo data instead.
+🎓 Demo Mode: Using simulated data for demonstration.
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
 
 ## 📝 Future Enhancements
 
-- [ ] Real-time data integration with Yahoo Finance API
-- [ ] Multiple stock ticker support
-- [ ] LSTM/Transformer models
-- [ ] Automated retraining pipeline
-- [ ] Authentication and user management
+- [ ] Add LSTM/Prophet models
+- [ ] Multi-stock comparison view
 - [ ] Historical forecast accuracy tracking
-- [ ] Export forecasts to CSV/Excel
+- [ ] Email alerts for significant price movements
+- [ ] Custom stock ticker input
+- [ ] Downloadable PDF reports
+- [ ] Model performance benchmarking dashboard
 
-## 👨‍💻 Author
+---
 
-**Alfred So**
-- LinkedIn: [linkedin.com/in/alfred-so](https://www.linkedin.com/in/alfred-so/)
-- GitHub: [github.com/Donald8585](https://github.com/Donald8585/)
-- Email: fiverrkroft@gmail.com
+## 🐛 Known Issues
+
+- Yahoo Finance API may experience intermittent downtime
+- Rate limiting during peak hours (automatic fallback enabled)
+- Some stocks may have limited historical data
+
+---
 
 ## 📄 License
 
-MIT License - feel free to use this project for learning and portfolio purposes!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👨‍💻 Author
+
+**Alfred So Chit Wai**
+
+- 🔗 LinkedIn: [linkedin.com/in/alfred-so](https://linkedin.com/in/alfred-so)
+- 💻 GitHub: [github.com/Donald8585](https://github.com/Donald8585)
+- 📧 Email: fiverrkroft@gmail.com
+- 🎓 Kaggle: [kaggle.com/sword4949](https://www.kaggle.com/sword4949/code)
+
+**Certifications:**
+- Google Data Analytics Professional
+- IBM Data Science Professional
+- DeepLearning.AI TensorFlow Developer
+- AWS Certified Machine Learning – Specialty
+- Microsoft Azure AI Engineer Associate
+- Google Cloud Machine Learning Engineer
+- Databricks Certified Machine Learning Professional
+
+---
 
 ## 🙏 Acknowledgments
 
-Built as part of ML Engineering portfolio for data science roles in San Francisco Bay Area.
+- Yahoo Finance for providing free stock data API
+- Streamlit for the amazing web framework
+- Statsmodels contributors for robust statistical models
+- The open-source community
+
+---
+
+## ⚠️ Disclaimer
+
+This project is for **educational purposes only**. The forecasts provided are not financial advice. Always consult with a qualified financial advisor before making investment decisions. Past performance does not guarantee future results.
+
+---
+
+## 📈 Project Stats
+
+![GitHub stars](https://img.shields.io/github/stars/Donald8585/stock-forecast-ml-dashboard?style=social)
+![GitHub forks](https://img.shields.io/github/forks/Donald8585/stock-forecast-ml-dashboard?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/Donald8585/stock-forecast-ml-dashboard?style=social)
+
+---
+
+**Made with ❤️ and Python** | **⭐ Star this repo if you find it helpful!**
