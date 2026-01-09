@@ -217,3 +217,6 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.success("🚀 **Tech Stack:** FastAPI + Streamlit + Statsmodels")
 st.sidebar.info("💡 Adjust horizon slider to see different forecasts")
+
+ticker = st.sidebar.selectbox("Stock Ticker", ["AAPL", "TSLA", "NVDA", "GOOGL"])
+
