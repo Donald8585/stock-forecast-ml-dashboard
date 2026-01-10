@@ -85,12 +85,41 @@ with st.sidebar:
 if train_button:
     try:
         with st.spinner(f"📥 Downloading {ticker} data..."):
-            # Download data
-            df = yf.download(ticker, start=start, end=end, progress=False)
+            # Try downloading real data
+            use_demo = False
+            try:
+                df = yf.download(ticker, start=start, end=end, progress=False, timeout=10)
+                
+                if df.empty or len(df) < 10:
+                    st.warning(f"⚠️ Could not download {ticker} data. Using demo data instead...")
+                    use_demo = True
+            except Exception as e:
+                st.warning(f"⚠️ Yahoo Finance error: {str(e)}. Using demo data instead...")
+                use_demo = True
             
-            if df.empty or len(df) < 10:
-                st.error(f"❌ No data available for {ticker}. Please try: GOOGL, MSFT, TSLA, NVDA")
-                st.stop()
+            # Use demo data if download failed
+            if use_demo:
+                st.info("📊 **Demo Mode**: Showing simulated GOOGL stock data (2022-2024)")
+                
+                # Generate realistic demo data
+                date_range = pd.date_range(start='2022-01-01', end='2024-12-31', freq='D')
+                np.random.seed(42)
+                
+                # Simulate realistic stock price with trend, seasonality, and noise
+                days = len(date_range)
+                base_price = 100
+                trend = np.linspace(0, 50, days)  # Upward trend
+                seasonality = 10 * np.sin(np.arange(days) * 2 * np.pi / 365)  # Yearly pattern
+                noise = np.random.normal(0, 3, days)  # Random fluctuations
+                
+                close_prices = base_price + trend + seasonality + noise
+                
+                # Create demo DataFrame matching yfinance structure
+                df = pd.DataFrame({
+                    'Close': close_prices
+                }, index=date_range)
+                
+                ticker = "GOOGL (Demo)"
             
             # Prepare data for Prophet - Handle different DataFrame structures
             df_clean = df.copy()
@@ -109,7 +138,7 @@ if train_button:
             if df_prophet['ds'].dt.tz is not None:
                 df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
             
-            st.success(f"✅ Downloaded {len(df_prophet)} days of {ticker} data")
+            st.success(f"✅ Loaded {len(df_prophet)} days of {ticker} data")
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
