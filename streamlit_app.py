@@ -252,10 +252,21 @@ if train_button:
             line=dict(color='#1E88E5', width=2)
         ))
         
-        # Forecast line
+        # Create smooth transition by adding last historical point to forecast
+        last_historical_point = pd.DataFrame({
+            'ds': [df_prophet['ds'].iloc[-1]],
+            'yhat': [df_prophet['y'].iloc[-1]],
+            'yhat_upper': [df_prophet['y'].iloc[-1]],
+            'yhat_lower': [df_prophet['y'].iloc[-1]]
+        })
+        
+        # Combine last point with forecast for smooth line
+        forecast_with_connection = pd.concat([last_historical_point, future_forecast_df], ignore_index=True)
+        
+        # Forecast line (with smooth connection)
         fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat'],
+            x=forecast_with_connection['ds'],
+            y=forecast_with_connection['yhat'],
             mode='lines',
             name='Forecast',
             line=dict(color='#FF6B6B', width=2, dash='dash')
@@ -263,8 +274,8 @@ if train_button:
         
         # Confidence interval upper
         fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat_upper'],
+            x=forecast_with_connection['ds'],
+            y=forecast_with_connection['yhat_upper'],
             mode='lines',
             name='Upper Bound',
             line=dict(width=0),
@@ -273,8 +284,8 @@ if train_button:
         
         # Confidence interval lower
         fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat_lower'],
+            x=forecast_with_connection['ds'],
+            y=forecast_with_connection['yhat_lower'],
             mode='lines',
             name='Confidence Interval',
             fill='tonexty',
@@ -292,6 +303,7 @@ if train_button:
         )
         
         st.plotly_chart(fig, use_container_width=True)
+
         
         # Forecast table
         st.markdown("### 📋 Forecast Details")
