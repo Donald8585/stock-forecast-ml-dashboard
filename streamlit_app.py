@@ -90,7 +90,6 @@ with st.sidebar:
     - 🧠 3-layer LSTM architecture
     """)
 
-    else:
         st.info("""
         **Prophet (Meta)**
         - Time series forecasting
