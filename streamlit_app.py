@@ -80,6 +80,7 @@ with st.sidebar:
     train_button = st.button("🚀 Train & Forecast", type="primary", use_container_width=True)
     
     st.markdown("---")
+    
     st.info("""
     ### 🧠 Model Info
     **LSTM (Deep Learning)**
