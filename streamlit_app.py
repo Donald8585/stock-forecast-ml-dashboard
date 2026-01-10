@@ -237,14 +237,33 @@ if train_button:
             line=dict(color='#1E88E5', width=2)
         ))
         
-        # Get only future predictions
-        future_mask = forecast['ds'] > df_prophet['ds'].max()
-        future_forecast_data = forecast[future_mask].head(forecast_days)
+                # Future forecast
+        with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
+            future = model.make_future_dataframe(periods=forecast_days)
+            forecast = model.predict(future)
+        
+        # Plot
+        st.markdown(f"### 📈 {ticker_display} Price Forecast")
+        
+        fig = go.Figure()
+        
+        # Historical data
+        fig.add_trace(go.Scatter(
+            x=df_prophet['ds'],
+            y=df_prophet['y'],
+            mode='lines',
+            name='Historical',
+            line=dict(color='#1E88E5', width=2)
+        ))
+        
+        # Get ONLY future predictions - SIMPLIFIED
+        historical_end = len(df_prophet)
+        future_forecast_df = forecast.iloc[historical_end:historical_end + forecast_days].copy()
         
         # Forecast line
         fig.add_trace(go.Scatter(
-            x=future_forecast_data['ds'],
-            y=future_forecast_data['yhat'],
+            x=future_forecast_df['ds'],
+            y=future_forecast_df['yhat'],
             mode='lines',
             name='Forecast',
             line=dict(color='#FF6B6B', width=2, dash='dash')
@@ -252,8 +271,8 @@ if train_button:
         
         # Confidence interval
         fig.add_trace(go.Scatter(
-            x=future_forecast_data['ds'],
-            y=future_forecast_data['yhat_upper'],
+            x=future_forecast_df['ds'],
+            y=future_forecast_df['yhat_upper'],
             mode='lines',
             name='Upper Bound',
             line=dict(width=0),
@@ -261,8 +280,8 @@ if train_button:
         ))
         
         fig.add_trace(go.Scatter(
-            x=future_forecast_data['ds'],
-            y=future_forecast_data['yhat_lower'],
+            x=future_forecast_df['ds'],
+            y=future_forecast_df['yhat_lower'],
             mode='lines',
             name='Confidence Interval',
             fill='tonexty',
@@ -281,8 +300,32 @@ if train_button:
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Forecast table
+        # Forecast table - FIXED VERSION
         st.markdown("### 📋 Forecast Details")
+        
+        # Add mode indicator BEFORE table
+        if use_demo:
+            st.warning("⚠️ **Demo Mode** - Simulated predictions for demonstration purposes.")
+        else:
+            st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
+        
+        # Create forecast dataframe - SIMPLIFIED
+        last_price = df_prophet['y'].iloc[-1]
+        
+        forecast_table = pd.DataFrame({
+            'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
+            'Predicted Price': future_forecast_df['yhat'].round(2),
+            'Lower Bound': future_forecast_df['yhat_lower'].round(2),
+            'Upper Bound': future_forecast_df['yhat_upper'].round(2),
+            'Change from Last': (future_forecast_df['yhat'] - last_price).round(2),
+            'Change %': ((future_forecast_df['yhat'] - last_price) / last_price * 100).round(2)
+        })
+        
+        # Reset index so it displays nicely
+        forecast_table = forecast_table.reset_index(drop=True)
+        
+        st.dataframe(forecast_table, use_container_width=True)
+
         
         # Add mode indicator BEFORE table
         if use_demo:
