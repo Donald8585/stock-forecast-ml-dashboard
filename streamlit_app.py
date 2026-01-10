@@ -223,42 +223,23 @@ if train_button:
             future = model.make_future_dataframe(periods=forecast_days)
             forecast = model.predict(future)
         
-        # Plot
-        st.markdown(f"### 📈 {ticker_display} Price Forecast")
-        
-        fig = go.Figure()
-        
-        # Historical data
-        fig.add_trace(go.Scatter(
-            x=df_prophet['ds'],
-            y=df_prophet['y'],
-            mode='lines',
-            name='Historical',
-            line=dict(color='#1E88E5', width=2)
-        ))
-        
-                # Future forecast
-        with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
-            future = model.make_future_dataframe(periods=forecast_days)
-            forecast = model.predict(future)
-        
-        # Plot
-        st.markdown(f"### 📈 {ticker_display} Price Forecast")
-        
-        fig = go.Figure()
-        
-        # Historical data
-        fig.add_trace(go.Scatter(
-            x=df_prophet['ds'],
-            y=df_prophet['y'],
-            mode='lines',
-            name='Historical',
-            line=dict(color='#1E88E5', width=2)
-        ))
-        
         # Get ONLY future predictions - SIMPLIFIED
         historical_end = len(df_prophet)
         future_forecast_df = forecast.iloc[historical_end:historical_end + forecast_days].copy()
+        
+        # Plot
+        st.markdown(f"### 📈 {ticker_display} Price Forecast")
+        
+        fig = go.Figure()
+        
+        # Historical data
+        fig.add_trace(go.Scatter(
+            x=df_prophet['ds'],
+            y=df_prophet['y'],
+            mode='lines',
+            name='Historical',
+            line=dict(color='#1E88E5', width=2)
+        ))
         
         # Forecast line
         fig.add_trace(go.Scatter(
@@ -300,7 +281,7 @@ if train_button:
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Forecast table - FIXED VERSION
+        # Forecast table
         st.markdown("### 📋 Forecast Details")
         
         # Add mode indicator BEFORE table
@@ -309,7 +290,7 @@ if train_button:
         else:
             st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
         
-        # Create forecast dataframe - SIMPLIFIED
+        # Create forecast dataframe
         last_price = df_prophet['y'].iloc[-1]
         
         forecast_table = pd.DataFrame({
@@ -325,28 +306,9 @@ if train_button:
         forecast_table = forecast_table.reset_index(drop=True)
         
         st.dataframe(forecast_table, use_container_width=True)
-
-        
-        # Add mode indicator BEFORE table
-        if use_demo:
-            st.warning("⚠️ **Demo Mode** - Simulated predictions for demonstration purposes.")
-        else:
-            st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
-        
-        # Create forecast dataframe
-        forecast_df = pd.DataFrame({
-            'Date': future_forecast_data['ds'].dt.strftime('%Y-%m-%d').values,
-            'Predicted Price': future_forecast_data['yhat'].round(2).values,
-            'Lower Bound': future_forecast_data['yhat_lower'].round(2).values,
-            'Upper Bound': future_forecast_data['yhat_upper'].round(2).values,
-            'Change from Last': (future_forecast_data['yhat'].values - df_prophet['y'].iloc[-1]).round(2),
-            'Change %': ((future_forecast_data['yhat'].values - df_prophet['y'].iloc[-1]) / df_prophet['y'].iloc[-1] * 100).round(2)
-        })
-        
-        st.dataframe(forecast_df, use_container_width=True)
         
         # Download button
-        csv = forecast_df.to_csv(index=False)
+        csv = forecast_table.to_csv(index=False)
         st.download_button(
             label="📥 Download Forecast CSV",
             data=csv,
