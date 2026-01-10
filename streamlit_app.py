@@ -7,7 +7,11 @@ import plotly.graph_objects as go
 from prophet import Prophet
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 import warnings
+import os
 warnings.filterwarnings('ignore')
+
+# Import LSTM model
+from lstm_model import StockLSTM
 
 # Page config
 st.set_page_config(
@@ -44,11 +48,19 @@ st.markdown("""
 
 # Header
 st.markdown('<p class="main-header">📈 StockForecast</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Prophet Time Series Forecasting System</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">LSTM & Prophet Time Series Forecasting</p>', unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
     st.markdown("### 🔧 Configuration")
+    
+    # Model selection
+    model_type = st.selectbox(
+        "Forecasting Model",
+        ["LSTM (Deep Learning)", "Prophet (Meta)"],
+        index=0,
+        help="LSTM: More accurate, faster inference. Prophet: Seasonal patterns."
+    )
     
     # Stock ticker selection
     ticker = st.text_input("Stock Ticker", value="GOOGL", help="Enter stock symbol (e.g., GOOGL, MSFT, TSLA)")
@@ -69,143 +81,182 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 🧠 Model Info")
-    st.info("""
-    **Prophet (Meta)**
-    - Time series forecasting
-    - Yearly + Weekly seasonality
-    - Handles missing data
-    - Production-ready
-    """)
+    
+    if "LSTM" in model_type:
+        st.info("""
+        **LSTM (Deep Learning)**
+        - Pre-trained models available
+        - <1 second inference (pre-trained)
+        - 2-5 min training (custom)
+        - High accuracy for stocks
+        """)
+    else:
+        st.info("""
+        **Prophet (Meta)**
+        - Time series forecasting
+        - Yearly + Weekly seasonality
+        - 20 second training
+        - Production-ready
+        """)
     
     st.markdown("### 🔗 Links")
     st.markdown("- [GitHub Repo](https://github.com/Donald8585/stock-forecast-ml-dashboard)")
     st.markdown("- [LinkedIn](https://linkedin.com/in/alfred-so)")
 
+# Cache LSTM models
+@st.cache_resource
+def load_pretrained_lstm(ticker):
+    """Load pre-trained LSTM model if available"""
+    filepath = f'models/{ticker}_lstm.h5'
+    if os.path.exists(filepath):
+        lstm = StockLSTM()
+        lstm.load_model(filepath)
+        return lstm, True
+    return None, False
+
 # Main content
 if train_button:
     try:
+        # Download data
         with st.spinner(f"📥 Downloading {ticker} data..."):
-            # Try downloading real data
             use_demo = False
             try:
                 df = yf.download(ticker, start=start, end=end, progress=False, timeout=10)
                 
-                if df.empty or len(df) < 10:
-                    st.warning(f"⚠️ Could not download {ticker} data. Using demo data instead...")
-                    use_demo = True
+                if df.empty or len(df) < 100:
+                    st.warning(f"⚠️ Insufficient data for {ticker}. Need at least 100 days.")
+                    st.stop()
             except Exception as e:
-                st.warning(f"⚠️ Yahoo Finance error: {str(e)[:100]}. Using demo data instead...")
-                use_demo = True
+                st.error(f"❌ Error downloading data: {str(e)[:100]}")
+                st.stop()
             
-            # Use demo data if download failed
-            if use_demo:
-                # Generate realistic demo data
-                date_range = pd.date_range(start='2022-01-01', end='2024-12-31', freq='D')
-                np.random.seed(42)
-                
-                # Simulate realistic stock price with trend, seasonality, and noise
-                days = len(date_range)
-                base_price = 100
-                trend = np.linspace(0, 50, days)
-                seasonality = 10 * np.sin(np.arange(days) * 2 * np.pi / 365)
-                noise = np.random.normal(0, 3, days)
-                
-                close_prices = base_price + trend + seasonality + noise
-                
-                # Create demo DataFrame matching yfinance structure
-                df = pd.DataFrame({
-                    'Close': close_prices
-                }, index=date_range)
-                
-                ticker_display = f"{ticker} (Demo)"
-            else:
-                ticker_display = ticker
-            
-            # Prepare data for Prophet
+            # Prepare data
             df_clean = df.copy()
-            
-            # Handle MultiIndex columns if present
             if isinstance(df_clean.columns, pd.MultiIndex):
                 df_clean.columns = df_clean.columns.get_level_values(0)
             
-            # Create Prophet dataframe
-            df_prophet = pd.DataFrame()
-            df_prophet['ds'] = pd.to_datetime(df_clean.index)
-            df_prophet['y'] = df_clean['Close'].values
-            df_prophet = df_prophet.reset_index(drop=True)
+            prices = df_clean['Close'].values
+            dates = pd.to_datetime(df_clean.index)
             
-            # Remove timezone if present
-            if df_prophet['ds'].dt.tz is not None:
-                df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
-            
-            st.success(f"✅ Loaded {len(df_prophet)} days of data")
-            
-            # Add mode badge
-            if use_demo:
-                st.markdown("""
-                <div style='background: #FFF3CD; border: 2px solid #FFA500; border-radius: 8px; padding: 1rem; margin: 1rem 0;'>
-                    <h4 style='margin: 0; color: #856404;'>🎮 DEMO MODE</h4>
-                    <p style='margin: 0.5rem 0 0 0; color: #856404;'>Using simulated stock data. Yahoo Finance rate limited - try again later for live data.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style='background: #D4EDDA; border: 2px solid #28A745; border-radius: 8px; padding: 1rem; margin: 1rem 0;'>
-                    <h4 style='margin: 0; color: #155724;'>✅ LIVE DATA MODE</h4>
-                    <p style='margin: 0.5rem 0 0 0; color: #155724;'>Real-time stock data from Yahoo Finance.</p>
-                </div>
-                """, unsafe_allow_html=True)
+            st.success(f"✅ Downloaded {len(prices)} days of {ticker} data")
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📊 Stock", ticker_display.upper())
+            st.metric("📊 Stock", ticker.upper())
         with col2:
-            current_price = df_prophet['y'].iloc[-1]
+            current_price = prices[-1]
             st.metric("💰 Current Price", f"${current_price:.2f}")
         with col3:
-            price_change = df_prophet['y'].iloc[-1] - df_prophet['y'].iloc[-2]
-            pct_change = (price_change / df_prophet['y'].iloc[-2]) * 100
+            price_change = prices[-1] - prices[-2]
+            pct_change = (price_change / prices[-2]) * 100
             st.metric("📈 Daily Change", f"{pct_change:+.2f}%", delta=f"${price_change:+.2f}")
         with col4:
-            st.metric("📅 Data Points", len(df_prophet))
+            st.metric("📅 Data Points", len(prices))
         
         st.markdown("---")
         
-        # Split data
-        split_idx = int(len(df_prophet) * 0.8)
-        train_data = df_prophet[:split_idx].copy()
-        test_data = df_prophet[split_idx:].copy()
-        
-        # Train model
-        with st.spinner("🤖 Training Prophet model... (this takes ~20 seconds)"):
-            progress_bar = st.progress(0)
+        # LSTM Model
+        if "LSTM" in model_type:
+            # Check for pre-trained model
+            lstm_model, is_pretrained = load_pretrained_lstm(ticker)
             
-            model = Prophet(
-                yearly_seasonality=True,
-                weekly_seasonality=True,  # ✅ KEEP IT - jumpy but works!
-                daily_seasonality=False,
-                changepoint_prior_scale=0.05  # ✅ Back to original
-            )
+            if is_pretrained:
+                st.success(f"⚡ Using pre-trained {ticker} model (instant inference!)")
+                
+                # Instant prediction
+                with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
+                    predictions = lstm_model.predict_future(prices, forecast_days)
+                    st.success("✅ Forecast complete!")
+            else:
+                st.warning(f"⚠️ No pre-trained model for {ticker}. Training new model (2-5 mins)...")
+                
+                # Train new model
+                with st.spinner(f"🤖 Training LSTM model for {ticker}... (this may take 2-5 minutes)"):
+                    progress_bar = st.progress(0)
+                    
+                    lstm_model = StockLSTM()
+                    X, y, _ = lstm_model.prepare_data(prices)
+                    
+                    # Split data
+                    split = int(0.8 * len(X))
+                    X_train, y_train = X[:split], y[:split]
+                    X_test, y_test = X[split:], y[split:]
+                    
+                    progress_bar.progress(20)
+                    
+                    # Train
+                    lstm_model.train(X_train, y_train, epochs=50, batch_size=32, verbose=0)
+                    progress_bar.progress(100)
+                    
+                    # Predict future
+                    predictions = lstm_model.predict_future(prices, forecast_days)
+                    
+                    st.success("✅ Model training complete!")
             
-            # Train
-            model.fit(train_data)
-            progress_bar.progress(100)
+            # Calculate confidence intervals (±5% for LSTM)
+            lower_bound = predictions * 0.95
+            upper_bound = predictions * 1.05
             
-            st.success("✅ Model training complete!")
-
-
-        
-        # Make predictions on test set
-        test_forecast = model.predict(test_data)
-        
-        # Calculate metrics
-        y_true = test_data['y'].values
-        y_pred = test_forecast['yhat'].values
-        
-        mape = mean_absolute_percentage_error(y_true, y_pred) * 100
-        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        mae = np.mean(np.abs(y_true - y_pred))
+            # Calculate metrics on test set
+            X, y, scaled_data = lstm_model.prepare_data(prices)
+            split = int(0.8 * len(X))
+            X_test, y_test = X[split:], y[split:]
+            
+            y_pred = lstm_model.model.predict(X_test, verbose=0)
+            y_pred = lstm_model.scaler.inverse_transform(y_pred)
+            y_test_inv = lstm_model.scaler.inverse_transform(y_test.reshape(-1, 1))
+            
+            mape = mean_absolute_percentage_error(y_test_inv, y_pred) * 100
+            rmse = np.sqrt(mean_squared_error(y_test_inv, y_pred))
+            mae = np.mean(np.abs(y_test_inv - y_pred))
+            
+        # Prophet Model
+        else:
+            # Prepare Prophet data
+            df_prophet = pd.DataFrame({'ds': dates, 'y': prices})
+            if df_prophet['ds'].dt.tz is not None:
+                df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
+            
+            # Split data
+            split_idx = int(len(df_prophet) * 0.8)
+            train_data = df_prophet[:split_idx].copy()
+            test_data = df_prophet[split_idx:].copy()
+            
+            # Train Prophet
+            with st.spinner("🤖 Training Prophet model... (20 seconds)"):
+                progress_bar = st.progress(0)
+                
+                model = Prophet(
+                    yearly_seasonality=True,
+                    weekly_seasonality=True,
+                    daily_seasonality=False,
+                    changepoint_prior_scale=0.05
+                )
+                
+                model.fit(train_data)
+                progress_bar.progress(100)
+                st.success("✅ Model training complete!")
+            
+            # Predict future
+            with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
+                last_date = df_prophet['ds'].max()
+                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+                future_df = pd.DataFrame({'ds': future_dates})
+                forecast = model.predict(future_df)
+                
+                predictions = forecast['yhat'].values
+                lower_bound = forecast['yhat_lower'].values
+                upper_bound = forecast['yhat_upper'].values
+            
+            # Calculate metrics
+            test_forecast = model.predict(test_data)
+            y_true = test_data['y'].values
+            y_pred = test_forecast['yhat'].values
+            
+            mape = mean_absolute_percentage_error(y_true, y_pred) * 100
+            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+            mae = np.mean(np.abs(y_true - y_pred))
         
         # Display metrics
         st.markdown("### 📊 Model Performance")
@@ -220,74 +271,52 @@ if train_button:
         
         st.markdown("---")
         
-        # Future forecast
-        with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
-            # Get the last date in historical data
-            last_date = df_prophet['ds'].max()
-            
-            # Create future dates manually (next forecast_days days after last_date)
-            future_dates = pd.date_range(
-                start=last_date + pd.Timedelta(days=1),
-                periods=forecast_days,
-                freq='D'
-            )
-            
-            # Create future dataframe with ONLY future dates
-            future_df = pd.DataFrame({'ds': future_dates})
-            
-            # Predict on these future dates
-            future_forecast_df = model.predict(future_df)
-            
-            st.success(f"✅ Forecasting {len(future_forecast_df)} days: {future_forecast_df['ds'].iloc[0].strftime('%Y-%m-%d')} to {future_forecast_df['ds'].iloc[-1].strftime('%Y-%m-%d')}")
+        # Create future dates
+        last_date = dates[-1]
+        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
         
         # Plot
-        st.markdown(f"### 📈 {ticker_display} Price Forecast")
+        st.markdown(f"### 📈 {ticker} Price Forecast ({model_type})")
         
         fig = go.Figure()
         
         # Historical data
         fig.add_trace(go.Scatter(
-            x=df_prophet['ds'],
-            y=df_prophet['y'],
+            x=dates,
+            y=prices,
             mode='lines',
             name='Historical',
             line=dict(color='#1E88E5', width=2)
         ))
         
-        # Create smooth transition by adding last historical point to forecast
-        last_historical_point = pd.DataFrame({
-            'ds': [df_prophet['ds'].iloc[-1]],
-            'yhat': [df_prophet['y'].iloc[-1]],
-            'yhat_upper': [df_prophet['y'].iloc[-1]],
-            'yhat_lower': [df_prophet['y'].iloc[-1]]
-        })
+        # Smooth connection
+        connection_dates = pd.concat([pd.Series([dates[-1]]), pd.Series(future_dates)])
+        connection_prices = np.concatenate([[prices[-1]], predictions])
         
-        # Combine last point with forecast for smooth line
-        forecast_with_connection = pd.concat([last_historical_point, future_forecast_df], ignore_index=True)
-        
-        # Forecast line (with smooth connection)
         fig.add_trace(go.Scatter(
-            x=forecast_with_connection['ds'],
-            y=forecast_with_connection['yhat'],
+            x=connection_dates,
+            y=connection_prices,
             mode='lines',
             name='Forecast',
             line=dict(color='#FF6B6B', width=2, dash='dash')
         ))
         
-        # Confidence interval upper
+        # Confidence interval
+        connection_upper = np.concatenate([[prices[-1]], upper_bound])
+        connection_lower = np.concatenate([[prices[-1]], lower_bound])
+        
         fig.add_trace(go.Scatter(
-            x=forecast_with_connection['ds'],
-            y=forecast_with_connection['yhat_upper'],
+            x=connection_dates,
+            y=connection_upper,
             mode='lines',
             name='Upper Bound',
             line=dict(width=0),
             showlegend=False
         ))
         
-        # Confidence interval lower
         fig.add_trace(go.Scatter(
-            x=forecast_with_connection['ds'],
-            y=forecast_with_connection['yhat_lower'],
+            x=connection_dates,
+            y=connection_lower,
             mode='lines',
             name='Confidence Interval',
             fill='tonexty',
@@ -296,7 +325,7 @@ if train_button:
         ))
         
         fig.update_layout(
-            title=f"{ticker_display} Stock Price Forecast",
+            title=f"{ticker} Stock Price Forecast",
             xaxis_title="Date",
             yaxis_title="Price (USD)",
             hovermode='x unified',
@@ -305,27 +334,18 @@ if train_button:
         )
         
         st.plotly_chart(fig, use_container_width=True)
-
         
         # Forecast table
         st.markdown("### 📋 Forecast Details")
-        
-        # Add mode indicator
-        if use_demo:
-            st.warning("⚠️ **Demo Mode** - Simulated predictions for demonstration purposes.")
-        else:
-            st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
-        
-        # Create forecast table
-        last_price = df_prophet['y'].iloc[-1]
+        st.info(f"✅ **{model_type}** - {'Pre-trained model' if 'LSTM' in model_type and is_pretrained else 'Newly trained model'}")
         
         forecast_table = pd.DataFrame({
-            'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
-            'Predicted Price': future_forecast_df['yhat'].round(2),
-            'Lower Bound': future_forecast_df['yhat_lower'].round(2),
-            'Upper Bound': future_forecast_df['yhat_upper'].round(2),
-            'Change from Last': (future_forecast_df['yhat'].values - last_price).round(2),
-            'Change %': ((future_forecast_df['yhat'].values - last_price) / last_price * 100).round(2)
+            'Date': future_dates.strftime('%Y-%m-%d'),
+            'Predicted Price': np.round(predictions, 2),
+            'Lower Bound': np.round(lower_bound, 2),
+            'Upper Bound': np.round(upper_bound, 2),
+            'Change from Last': np.round(predictions - prices[-1], 2),
+            'Change %': np.round((predictions - prices[-1]) / prices[-1] * 100, 2)
         })
         
         st.dataframe(forecast_table, use_container_width=True)
@@ -335,21 +355,16 @@ if train_button:
         st.download_button(
             label="📥 Download Forecast CSV",
             data=csv,
-            file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
+            file_name=f"{ticker}_{model_type.split()[0]}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
             mime='text/csv'
         )
-
-
-
-
-
         
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
         st.exception(e)
 
 else:
-    # Initial state - show instructions
+    # Initial state
     st.info("👈 **Configure settings in the sidebar and click 'Train & Forecast' to begin!**")
     
     st.markdown("### 🎯 How It Works")
@@ -357,17 +372,17 @@ else:
     
     with col1:
         st.markdown("""
-        **1️⃣ Select Stock**
-        - Enter ticker symbol
-        - Choose date range
-        - Set forecast period
+        **1️⃣ Select Model**
+        - LSTM: Deep learning (faster)
+        - Prophet: Meta's forecaster
+        - Choose stock & date range
         """)
     
     with col2:
         st.markdown("""
         **2️⃣ Train Model**
         - Downloads historical data
-        - Trains Prophet model
+        - Uses pre-trained or trains new
         - Validates on test set
         """)
     
@@ -380,17 +395,17 @@ else:
         """)
     
     st.markdown("---")
-    st.markdown("### 💡 Suggested Stock Tickers")
+    st.markdown("### 💡 Pre-trained Stocks (Instant Predictions)")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.code("GOOGL\nAlphabet")
+        st.code("GOOGL\n⚡ Pre-trained")
     with col2:
-        st.code("MSFT\nMicrosoft")
+        st.code("MSFT\n⚡ Pre-trained")
     with col3:
-        st.code("TSLA\nTesla")
+        st.code("TSLA\n⚡ Pre-trained")
     with col4:
-        st.code("NVDA\nNVIDIA")
+        st.code("NVDA\n⚡ Pre-trained")
 
 # Footer
 st.markdown("---")
