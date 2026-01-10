@@ -10,9 +10,9 @@ class StockLSTM:
     def __init__(self):
         self.model = None
         self.scaler = MinMaxScaler(feature_range=(0, 1))
-        self.look_back = 60  # Use 60 days to predict next day
+        self.look_back = 20  # ✅ Changed from 60 to 20
         
-    def prepare_data(self, data, look_back=60):
+    def prepare_data(self, data, look_back=20):  # ✅ Changed default
         """Prepare data for LSTM training"""
         scaled_data = self.scaler.fit_transform(data.reshape(-1, 1))
         
@@ -57,31 +57,54 @@ class StockLSTM:
         return history
     
     def predict_future(self, data, forecast_days=30):
-        """Predict future prices"""
-        scaled_data = self.scaler.transform(data.reshape(-1, 1))
+        """Predict future prices with strong trend preservation"""
         
-        # Get last look_back days
+        # Calculate recent trend (last 10 days)
+        recent_prices = data[-10:]
+        trend_slope = (recent_prices[-1] - recent_prices[0]) / 10
+        
+        # Get LSTM predictions
+        scaled_data = self.scaler.transform(data.reshape(-1, 1))
         last_sequence = scaled_data[-self.look_back:]
         
-        predictions = []
+        lstm_predictions = []
         current_sequence = last_sequence.copy()
         
         for _ in range(forecast_days):
-            # Reshape for prediction
             X_test = current_sequence.reshape(1, self.look_back, 1)
-            
-            # Predict next day
             next_pred = self.model.predict(X_test, verbose=0)[0][0]
-            predictions.append(next_pred)
-            
-            # Update sequence (sliding window)
+            lstm_predictions.append(next_pred)
             current_sequence = np.append(current_sequence[1:], [[next_pred]], axis=0)
         
-        # Inverse transform to get actual prices
-        predictions = np.array(predictions).reshape(-1, 1)
-        predictions = self.scaler.inverse_transform(predictions)
+        # Inverse transform LSTM predictions
+        lstm_predictions = np.array(lstm_predictions).reshape(-1, 1)
+        lstm_predictions = self.scaler.inverse_transform(lstm_predictions)
+        lstm_predictions = lstm_predictions.flatten()
         
-        return predictions.flatten()
+        # ✅ STRONG FIX: Use trend continuation instead of broken LSTM
+        last_price = data[-1]
+        trend_predictions = []
+        
+        for i in range(forecast_days):
+            # Continue recent trend with slight dampening
+            trend_pred = last_price + (trend_slope * (i + 1) * 0.5)  # 50% dampening
+            
+            # Limit to ±2% daily change
+            if i > 0:
+                max_change = trend_predictions[i-1] * 0.02
+                trend_pred = np.clip(trend_pred, 
+                                    trend_predictions[i-1] - max_change,
+                                    trend_predictions[i-1] + max_change)
+            
+            trend_predictions.append(trend_pred)
+        
+        trend_predictions = np.array(trend_predictions)
+        
+        # Blend: 40% LSTM, 60% Trend (favor trend over broken LSTM)
+        final_predictions = lstm_predictions * 0.4 + trend_predictions * 0.6
+        
+        return final_predictions
+
     
     def save_model(self, filepath):
         """Save model and scaler"""
