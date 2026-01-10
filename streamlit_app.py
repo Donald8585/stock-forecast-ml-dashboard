@@ -220,13 +220,24 @@ if train_button:
         
         # Future forecast
         with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
-            # Create future dataframe
+            # Create future dataframe starting AFTER the last historical date
             future = model.make_future_dataframe(periods=forecast_days)
             forecast = model.predict(future)
             
-            # Get only the LAST forecast_days rows (these are the future predictions)
-            future_forecast_df = forecast.tail(forecast_days).copy()
-            future_forecast_df = future_forecast_df.reset_index(drop=True)
+            # Get the ACTUAL last date in historical data
+            last_historical_date = df_prophet['ds'].iloc[-1]
+            
+            # Filter for dates STRICTLY AFTER the last historical date
+            future_forecast_df = forecast[forecast['ds'] > last_historical_date].copy()
+            
+            # Take first forecast_days rows (in case there are more)
+            future_forecast_df = future_forecast_df.head(forecast_days).reset_index(drop=True)
+            
+            # DEBUG: Show what dates we're forecasting
+            if len(future_forecast_df) > 0:
+                st.success(f"✅ Forecasting from {future_forecast_df['ds'].iloc[0].strftime('%Y-%m-%d')} to {future_forecast_df['ds'].iloc[-1].strftime('%Y-%m-%d')}")
+            else:
+                st.error("❌ No future dates found! Check your data range.")
         
         # Plot
         st.markdown(f"### 📈 {ticker_display} Price Forecast")
@@ -242,35 +253,36 @@ if train_button:
             line=dict(color='#1E88E5', width=2)
         ))
         
-        # Forecast line
-        fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat'],
-            mode='lines',
-            name='Forecast',
-            line=dict(color='#FF6B6B', width=2, dash='dash')
-        ))
-        
-        # Confidence interval upper
-        fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat_upper'],
-            mode='lines',
-            name='Upper Bound',
-            line=dict(width=0),
-            showlegend=False
-        ))
-        
-        # Confidence interval lower
-        fig.add_trace(go.Scatter(
-            x=future_forecast_df['ds'],
-            y=future_forecast_df['yhat_lower'],
-            mode='lines',
-            name='Confidence Interval',
-            fill='tonexty',
-            fillcolor='rgba(255, 107, 107, 0.2)',
-            line=dict(width=0)
-        ))
+        if len(future_forecast_df) > 0:
+            # Forecast line
+            fig.add_trace(go.Scatter(
+                x=future_forecast_df['ds'],
+                y=future_forecast_df['yhat'],
+                mode='lines',
+                name='Forecast',
+                line=dict(color='#FF6B6B', width=2, dash='dash')
+            ))
+            
+            # Confidence interval upper
+            fig.add_trace(go.Scatter(
+                x=future_forecast_df['ds'],
+                y=future_forecast_df['yhat_upper'],
+                mode='lines',
+                name='Upper Bound',
+                line=dict(width=0),
+                showlegend=False
+            ))
+            
+            # Confidence interval lower
+            fig.add_trace(go.Scatter(
+                x=future_forecast_df['ds'],
+                y=future_forecast_df['yhat_lower'],
+                mode='lines',
+                name='Confidence Interval',
+                fill='tonexty',
+                fillcolor='rgba(255, 107, 107, 0.2)',
+                line=dict(width=0)
+            ))
         
         fig.update_layout(
             title=f"{ticker_display} Stock Price Forecast",
@@ -292,28 +304,32 @@ if train_button:
         else:
             st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
         
-        # Create forecast table
-        last_price = df_prophet['y'].iloc[-1]
-        
-        forecast_table = pd.DataFrame({
-            'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
-            'Predicted Price': future_forecast_df['yhat'].round(2),
-            'Lower Bound': future_forecast_df['yhat_lower'].round(2),
-            'Upper Bound': future_forecast_df['yhat_upper'].round(2),
-            'Change from Last': (future_forecast_df['yhat'].values - last_price).round(2),
-            'Change %': ((future_forecast_df['yhat'].values - last_price) / last_price * 100).round(2)
-        })
-        
-        st.dataframe(forecast_table, use_container_width=True)
-        
-        # Download button
-        csv = forecast_table.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Forecast CSV",
-            data=csv,
-            file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime='text/csv'
-        )
+        if len(future_forecast_df) > 0:
+            # Create forecast table
+            last_price = df_prophet['y'].iloc[-1]
+            
+            forecast_table = pd.DataFrame({
+                'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
+                'Predicted Price': future_forecast_df['yhat'].round(2),
+                'Lower Bound': future_forecast_df['yhat_lower'].round(2),
+                'Upper Bound': future_forecast_df['yhat_upper'].round(2),
+                'Change from Last': (future_forecast_df['yhat'].values - last_price).round(2),
+                'Change %': ((future_forecast_df['yhat'].values - last_price) / last_price * 100).round(2)
+            })
+            
+            st.dataframe(forecast_table, use_container_width=True)
+            
+            # Download button
+            csv = forecast_table.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Forecast CSV",
+                data=csv,
+                file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime='text/csv'
+            )
+        else:
+            st.error("❌ No future predictions available. The historical data may be too recent.")
+
 
 
         
