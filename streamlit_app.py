@@ -90,13 +90,13 @@ with st.sidebar:
     - 🧠 3-layer LSTM architecture
     """)
 
-        st.info("""
-        **Prophet (Meta)**
-        - Time series forecasting
-        - Yearly + Weekly seasonality
-        - 20 second training
-        - Production-ready
-        """)
+    st.info("""
+    **Prophet (Meta)**
+    - Time series forecasting
+    - Yearly + Weekly seasonality
+    - 20 second training
+    - Production-ready
+    """)
     
     st.markdown("### 🔗 Links")
     st.markdown("- [GitHub Repo](https://github.com/Donald8585/stock-forecast-ml-dashboard)")
