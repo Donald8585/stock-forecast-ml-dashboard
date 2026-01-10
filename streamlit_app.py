@@ -220,14 +220,21 @@ if train_button:
         
         # Future forecast
         with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
-            # Prophet's make_future_dataframe includes ALL dates (historical + future)
-            future = model.make_future_dataframe(periods=forecast_days)
-            forecast = model.predict(future)
+            # Get the last date in historical data
+            last_date = df_prophet['ds'].max()
             
-            # The LAST forecast_days rows are the FUTURE predictions
-            # (because make_future_dataframe APPENDS forecast_days new dates)
-            future_forecast_df = forecast.iloc[-forecast_days:].copy()
-            future_forecast_df = future_forecast_df.reset_index(drop=True)
+            # Create future dates manually (next forecast_days days after last_date)
+            future_dates = pd.date_range(
+                start=last_date + pd.Timedelta(days=1),
+                periods=forecast_days,
+                freq='D'
+            )
+            
+            # Create future dataframe with ONLY future dates
+            future_df = pd.DataFrame({'ds': future_dates})
+            
+            # Predict on these future dates
+            future_forecast_df = model.predict(future_df)
             
             st.success(f"✅ Forecasting {len(future_forecast_df)} days: {future_forecast_df['ds'].iloc[0].strftime('%Y-%m-%d')} to {future_forecast_df['ds'].iloc[-1].strftime('%Y-%m-%d')}")
         
@@ -317,6 +324,7 @@ if train_button:
             file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
             mime='text/csv'
         )
+
 
 
 
