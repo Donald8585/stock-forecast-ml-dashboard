@@ -8,6 +8,7 @@ from prophet import Prophet
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 import warnings
 import os
+
 warnings.filterwarnings('ignore')
 
 # Import LSTM model
@@ -27,28 +28,23 @@ st.markdown("""
         font-size: 3rem;
         font-weight: bold;
         text-align: center;
-        color: #1E88E5;
-        margin-bottom: 1rem;
+        background: linear-gradient(120deg, #1e3a8a, #3b82f6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0;
     }
-    .subtitle {
+    .sub-header {
         text-align: center;
-        color: #666;
+        color: #64748b;
         font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
+        margin-top: 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Header
-st.markdown('<p class="main-header">📈 StockForecast</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">LSTM & Prophet Time Series Forecasting</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">📈 StockForecast</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">LSTM & Prophet Time Series Forecasting</p>', unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -59,11 +55,12 @@ with st.sidebar:
         "Forecasting Model",
         ["LSTM (Deep Learning)", "Prophet (Meta)"],
         index=0,
-        help="LSTM: More accurate, faster inference. Prophet: Seasonal patterns."
+        help="LSTM: Deep learning approach. Prophet: Statistical forecasting."
     )
     
     # Stock ticker selection
-    ticker = st.text_input("Stock Ticker", value="GOOGL", help="Enter stock symbol (e.g., GOOGL, MSFT, TSLA)")
+    ticker = st.text_input("Stock Ticker", value="GOOGL", 
+                          help="Enter stock symbol (e.g., GOOGL, MSFT, TSLA)")
     
     # Date range
     end_date = datetime.now()
@@ -81,23 +78,26 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Model info
     st.info("""
-    ### 🧠 Model Info
-    **LSTM (Deep Learning)**
-    - ⚡ Lightning-fast training: ~20 seconds
-    - 🎯 Custom model per stock ticker
-    - 📊 Trains on your selected date range
-    - 🔄 Always uses latest market data
-    - 🧠 3-layer LSTM architecture
-    """)
+### 🧠 Model Info
 
-    st.info("""
-    **Prophet (Meta)**
-    - Time series forecasting
-    - Yearly + Weekly seasonality
-    - 20 second training
-    - Production-ready
+**LSTM (Deep Learning)**
+- ⚡ Lightning-fast training: ~20 seconds
+- 🎯 Custom model per stock ticker
+- 📊 Trains on your selected date range
+- 🔄 Always uses latest market data
+- 🧠 3-layer LSTM architecture
+
+**Prophet (Meta)**
+- 📈 Time series forecasting
+- 📅 Yearly + Weekly seasonality  
+- ⚡ ~20 second training
+- ✅ Production-ready
     """)
+    
+    st.markdown("### 🚀 Popular Stocks")
+    st.markdown("Try: **GOOGL** • **MSFT** • **TSLA** • **NVDA** • **AAPL**")
     
     st.markdown("### 🔗 Links")
     st.markdown("- [GitHub Repo](https://github.com/Donald8585/stock-forecast-ml-dashboard)")
@@ -119,38 +119,42 @@ if train_button:
     try:
         # Download data
         with st.spinner(f"📥 Downloading {ticker} data..."):
-            use_demo = False
             try:
                 df = yf.download(ticker, start=start, end=end, progress=False, timeout=10)
                 
                 if df.empty or len(df) < 100:
                     st.warning(f"⚠️ Insufficient data for {ticker}. Need at least 100 days.")
                     st.stop()
+                    
             except Exception as e:
                 st.error(f"❌ Error downloading data: {str(e)[:100]}")
                 st.stop()
-            
-            # Prepare data
-            df_clean = df.copy()
-            if isinstance(df_clean.columns, pd.MultiIndex):
-                df_clean.columns = df_clean.columns.get_level_values(0)
-            
-            prices = df_clean['Close'].values
-            dates = pd.to_datetime(df_clean.index)
-            
-            st.success(f"✅ Downloaded {len(prices)} days of {ticker} data")
+        
+        # Prepare data
+        df_clean = df.copy()
+        if isinstance(df_clean.columns, pd.MultiIndex):
+            df_clean.columns = df_clean.columns.get_level_values(0)
+        
+        prices = df_clean['Close'].values
+        dates = pd.to_datetime(df_clean.index)
+        
+        st.success(f"✅ Downloaded {len(prices)} days of {ticker} data")
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
+        
         with col1:
             st.metric("📊 Stock", ticker.upper())
+        
         with col2:
             current_price = prices[-1]
             st.metric("💰 Current Price", f"${current_price:.2f}")
+        
         with col3:
             price_change = prices[-1] - prices[-2]
             pct_change = (price_change / prices[-2]) * 100
             st.metric("📈 Daily Change", f"{pct_change:+.2f}%", delta=f"${price_change:+.2f}")
+        
         with col4:
             st.metric("📅 Data Points", len(prices))
         
@@ -158,22 +162,19 @@ if train_button:
         
         # LSTM Model
         if "LSTM" in model_type:
-            # Check for pre-trained model
+            # Check for pre-trained model (won't exist but keep for future)
             lstm_model, is_pretrained = load_pretrained_lstm(ticker)
             
             if is_pretrained:
-                st.success(f"⚡ Using pre-trained {ticker} model (instant inference!)")
+                st.success(f"⚡ Using cached {ticker} model!")
                 
-                # Instant prediction
                 with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
                     predictions = lstm_model.predict_future(prices, forecast_days)
-                    st.success("✅ Forecast complete!")
-            else:
-                st.warning(f"⚠️ No pre-trained model for {ticker}. Training new model (~20 seconds)...")
-
+                st.success("✅ Forecast complete!")
                 
+            else:
                 # Train new model
-                with st.spinner(f"🤖 Training LSTM model for {ticker}... (this may take 2-5 minutes)"):
+                with st.spinner(f"🤖 Training LSTM model for {ticker}... (~20 seconds)"):
                     progress_bar = st.progress(0)
                     
                     lstm_model = StockLSTM()
@@ -188,12 +189,13 @@ if train_button:
                     
                     # Train
                     lstm_model.train(X_train, y_train, epochs=50, batch_size=32, verbose=0)
-                    progress_bar.progress(100)
+                    progress_bar.progress(80)
                     
                     # Predict future
                     predictions = lstm_model.predict_future(prices, forecast_days)
+                    progress_bar.progress(100)
                     
-                    st.success("✅ Model training complete!")
+                st.success("✅ Model training complete!")
             
             # Calculate confidence intervals (±5% for LSTM)
             lower_bound = predictions * 0.95
@@ -211,11 +213,12 @@ if train_button:
             mape = mean_absolute_percentage_error(y_test_inv, y_pred) * 100
             rmse = np.sqrt(mean_squared_error(y_test_inv, y_pred))
             mae = np.mean(np.abs(y_test_inv - y_pred))
-            
+        
         # Prophet Model
         else:
             # Prepare Prophet data
             df_prophet = pd.DataFrame({'ds': dates, 'y': prices})
+            
             if df_prophet['ds'].dt.tz is not None:
                 df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
             
@@ -225,7 +228,7 @@ if train_button:
             test_data = df_prophet[split_idx:].copy()
             
             # Train Prophet
-            with st.spinner("🤖 Training Prophet model... (20 seconds)"):
+            with st.spinner("🤖 Training Prophet model... (~20 seconds)"):
                 progress_bar = st.progress(0)
                 
                 model = Prophet(
@@ -237,13 +240,18 @@ if train_button:
                 
                 model.fit(train_data)
                 progress_bar.progress(100)
-                st.success(f"✅ Model trained in ~10s | Final Loss: {loss:.4f}")
-
+                
+            st.success("✅ Prophet model trained!")
             
             # Predict future
             with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
                 last_date = df_prophet['ds'].max()
-                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+                future_dates = pd.date_range(
+                    start=last_date + pd.Timedelta(days=1),
+                    periods=forecast_days,
+                    freq='D'
+                )
+                
                 future_df = pd.DataFrame({'ds': future_dates})
                 forecast = model.predict(future_df)
                 
@@ -265,21 +273,28 @@ if train_button:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.markdown(f'<div class="metric-card"><h3>{mape:.2f}%</h3><p>MAPE</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; padding: 20px; background: #f0f9ff; border-radius: 10px;"><h3 style="color: #0369a1; margin: 0;">MAPE</h3><h2 style="margin: 5px 0;">{mape:.2f}%</h2></div>', unsafe_allow_html=True)
+        
         with col2:
-            st.markdown(f'<div class="metric-card"><h3>${rmse:.2f}</h3><p>RMSE</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; padding: 20px; background: #f0fdf4; border-radius: 10px;"><h3 style="color: #15803d; margin: 0;">RMSE</h3><h2 style="margin: 5px 0;">${rmse:.2f}</h2></div>', unsafe_allow_html=True)
+        
         with col3:
-            st.markdown(f'<div class="metric-card"><h3>${mae:.2f}</h3><p>MAE</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; padding: 20px; background: #fef3c7; border-radius: 10px;"><h3 style="color: #a16207; margin: 0;">MAE</h3><h2 style="margin: 5px 0;">${mae:.2f}</h2></div>', unsafe_allow_html=True)
         
         st.markdown("---")
         
+        # Plot forecast
+        st.markdown(f"### 📈 {ticker} Stock Price Forecast")
+        
         # Create future dates
         last_date = dates[-1]
-        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+        future_dates = pd.date_range(
+            start=last_date + pd.Timedelta(days=1),
+            periods=forecast_days,
+            freq='D'
+        )
         
-        # Plot
-        st.markdown(f"### 📈 {ticker} Price Forecast ({model_type})")
-        
+        # Create plot
         fig = go.Figure()
         
         # Historical data
@@ -288,28 +303,22 @@ if train_button:
             y=prices,
             mode='lines',
             name='Historical',
-            line=dict(color='#1E88E5', width=2)
+            line=dict(color='#3b82f6', width=2)
         ))
         
-        # Smooth connection
-        connection_dates = pd.concat([pd.Series([dates[-1]]), pd.Series(future_dates)])
-        connection_prices = np.concatenate([[prices[-1]], predictions])
-        
+        # Forecast
         fig.add_trace(go.Scatter(
-            x=connection_dates,
-            y=connection_prices,
+            x=future_dates,
+            y=predictions,
             mode='lines',
             name='Forecast',
-            line=dict(color='#FF6B6B', width=2, dash='dash')
+            line=dict(color='#ef4444', width=2, dash='dash')
         ))
         
         # Confidence interval
-        connection_upper = np.concatenate([[prices[-1]], upper_bound])
-        connection_lower = np.concatenate([[prices[-1]], lower_bound])
-        
         fig.add_trace(go.Scatter(
-            x=connection_dates,
-            y=connection_upper,
+            x=future_dates,
+            y=upper_bound,
             mode='lines',
             name='Upper Bound',
             line=dict(width=0),
@@ -317,13 +326,14 @@ if train_button:
         ))
         
         fig.add_trace(go.Scatter(
-            x=connection_dates,
-            y=connection_lower,
+            x=future_dates,
+            y=lower_bound,
             mode='lines',
-            name='Confidence Interval',
+            name='Lower Bound',
             fill='tonexty',
-            fillcolor='rgba(255, 107, 107, 0.2)',
-            line=dict(width=0)
+            fillcolor='rgba(239, 68, 68, 0.2)',
+            line=dict(width=0),
+            showlegend=False
         ))
         
         fig.update_layout(
@@ -331,89 +341,37 @@ if train_button:
             xaxis_title="Date",
             yaxis_title="Price (USD)",
             hovermode='x unified',
-            template='plotly_white',
-            height=600
+            height=600,
+            template='plotly_white'
         )
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Forecast table
-        st.markdown("### 📋 Forecast Details")
-        st.info(f"✅ **{model_type}** - {'Pre-trained model' if 'LSTM' in model_type and is_pretrained else 'Newly trained model'}")
-        
-        forecast_table = pd.DataFrame({
-            'Date': future_dates.strftime('%Y-%m-%d'),
-            'Predicted Price': np.round(predictions, 2),
-            'Lower Bound': np.round(lower_bound, 2),
-            'Upper Bound': np.round(upper_bound, 2),
-            'Change from Last': np.round(predictions - prices[-1], 2),
-            'Change %': np.round((predictions - prices[-1]) / prices[-1] * 100, 2)
+        # Download forecast
+        forecast_df = pd.DataFrame({
+            'Date': future_dates,
+            'Predicted Price': predictions,
+            'Lower Bound': lower_bound,
+            'Upper Bound': upper_bound
         })
         
-        st.dataframe(forecast_table, use_container_width=True)
-        
-        # Download button
-        csv = forecast_table.to_csv(index=False)
+        csv = forecast_df.to_csv(index=False)
         st.download_button(
             label="📥 Download Forecast CSV",
             data=csv,
-            file_name=f"{ticker}_{model_type.split()[0]}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime='text/csv'
+            file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
         )
         
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
         st.exception(e)
 
-else:
-    # Initial state
-    st.info("👈 **Configure settings in the sidebar and click 'Train & Forecast' to begin!**")
-    
-    st.markdown("### 🎯 How It Works")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **1️⃣ Select Model**
-        - LSTM: Deep learning (faster)
-        - Prophet: Meta's forecaster
-        - Choose stock & date range
-        """)
-    
-    with col2:
-        st.markdown("""
-        **2️⃣ Train Model**
-        - Downloads historical data
-        - Uses pre-trained or trains new
-        - Validates on test set
-        """)
-    
-    with col3:
-        st.markdown("""
-        **3️⃣ View Results**
-        - Interactive forecast chart
-        - Performance metrics
-        - Download predictions
-        """)
-    
-    st.markdown("---")
-    st.markdown("### 💡 Pre-trained Stocks (Instant Predictions)")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.code("GOOGL\n⚡ Pre-trained")
-    with col2:
-        st.code("MSFT\n⚡ Pre-trained")
-    with col3:
-        st.code("TSLA\n⚡ Pre-trained")
-    with col4:
-        st.code("NVDA\n⚡ Pre-trained")
-
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #666; padding: 2rem;'>
-    <p>Built by <strong>Alfred So</strong> | ML Engineer</p>
-    <p>🎓 AWS ML • GCP ML • Azure AI • Databricks ML • NVIDIA AIIO</p>
+<div style='text-align: center; color: #64748b;'>
+<p><strong>Built by Alfred So | ML Engineer</strong></p>
+<p>🎓 AWS ML • GCP ML • Azure AI • Databricks ML • NVIDIA AIIO</p>
 </div>
 """, unsafe_allow_html=True)
