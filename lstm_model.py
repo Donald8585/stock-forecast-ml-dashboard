@@ -42,6 +42,7 @@ class StockLSTM:
         self.model = model
         return model
     
+    # In lstm_model.py, return training history
     def train(self, X_train, y_train, epochs=50, batch_size=32, verbose=0):
         """Train the model"""
         if self.model is None:
@@ -54,7 +55,11 @@ class StockLSTM:
             verbose=verbose,
             validation_split=0.1
         )
-        return history
+        
+        # Return final loss for display
+        final_loss = history.history['loss'][-1]
+        return history, final_loss
+
     
     def predict_future(self, data, forecast_days=30):
         """Predict future prices with strong trend preservation"""
