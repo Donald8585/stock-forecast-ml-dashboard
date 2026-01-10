@@ -55,7 +55,7 @@ with st.sidebar:
     
     # Date range
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=365*2)  # 2 years
+    start_date = end_date - timedelta(days=365*2)
     
     st.markdown("### 📅 Data Range")
     start = st.date_input("Start Date", value=start_date)
@@ -94,13 +94,11 @@ if train_button:
                     st.warning(f"⚠️ Could not download {ticker} data. Using demo data instead...")
                     use_demo = True
             except Exception as e:
-                st.warning(f"⚠️ Yahoo Finance error: {str(e)}. Using demo data instead...")
+                st.warning(f"⚠️ Yahoo Finance error: {str(e)[:100]}. Using demo data instead...")
                 use_demo = True
             
             # Use demo data if download failed
             if use_demo:
-                st.info("📊 **Demo Mode**: Showing simulated GOOGL stock data (2022-2024)")
-                
                 # Generate realistic demo data
                 date_range = pd.date_range(start='2022-01-01', end='2024-12-31', freq='D')
                 np.random.seed(42)
@@ -108,9 +106,9 @@ if train_button:
                 # Simulate realistic stock price with trend, seasonality, and noise
                 days = len(date_range)
                 base_price = 100
-                trend = np.linspace(0, 50, days)  # Upward trend
-                seasonality = 10 * np.sin(np.arange(days) * 2 * np.pi / 365)  # Yearly pattern
-                noise = np.random.normal(0, 3, days)  # Random fluctuations
+                trend = np.linspace(0, 50, days)
+                seasonality = 10 * np.sin(np.arange(days) * 2 * np.pi / 365)
+                noise = np.random.normal(0, 3, days)
                 
                 close_prices = base_price + trend + seasonality + noise
                 
@@ -119,9 +117,11 @@ if train_button:
                     'Close': close_prices
                 }, index=date_range)
                 
-                ticker = "GOOGL (Demo)"
+                ticker_display = f"{ticker} (Demo)"
+            else:
+                ticker_display = ticker
             
-            # Prepare data for Prophet - Handle different DataFrame structures
+            # Prepare data for Prophet
             df_clean = df.copy()
             
             # Handle MultiIndex columns if present
@@ -138,12 +138,28 @@ if train_button:
             if df_prophet['ds'].dt.tz is not None:
                 df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
             
-            st.success(f"✅ Loaded {len(df_prophet)} days of {ticker} data")
+            st.success(f"✅ Loaded {len(df_prophet)} days of data")
+            
+            # Add mode badge
+            if use_demo:
+                st.markdown("""
+                <div style='background: #FFF3CD; border: 2px solid #FFA500; border-radius: 8px; padding: 1rem; margin: 1rem 0;'>
+                    <h4 style='margin: 0; color: #856404;'>🎮 DEMO MODE</h4>
+                    <p style='margin: 0.5rem 0 0 0; color: #856404;'>Using simulated stock data. Yahoo Finance rate limited - try again later for live data.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style='background: #D4EDDA; border: 2px solid #28A745; border-radius: 8px; padding: 1rem; margin: 1rem 0;'>
+                    <h4 style='margin: 0; color: #155724;'>✅ LIVE DATA MODE</h4>
+                    <p style='margin: 0.5rem 0 0 0; color: #155724;'>Real-time stock data from Yahoo Finance.</p>
+                </div>
+                """, unsafe_allow_html=True)
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📊 Stock", ticker.upper())
+            st.metric("📊 Stock", ticker_display.upper())
         with col2:
             current_price = df_prophet['y'].iloc[-1]
             st.metric("💰 Current Price", f"${current_price:.2f}")
@@ -208,7 +224,7 @@ if train_button:
             forecast = model.predict(future)
         
         # Plot
-        st.markdown(f"### 📈 {ticker} Price Forecast")
+        st.markdown(f"### 📈 {ticker_display} Price Forecast")
         
         fig = go.Figure()
         
@@ -221,25 +237,23 @@ if train_button:
             line=dict(color='#1E88E5', width=2)
         ))
         
-        # Forecast
-        future_dates = forecast['ds'][len(df_prophet):]
-        future_pred = forecast['yhat'][len(df_prophet):]
+        # Get only future predictions
+        future_mask = forecast['ds'] > df_prophet['ds'].max()
+        future_forecast_data = forecast[future_mask].head(forecast_days)
         
+        # Forecast line
         fig.add_trace(go.Scatter(
-            x=future_dates,
-            y=future_pred,
+            x=future_forecast_data['ds'],
+            y=future_forecast_data['yhat'],
             mode='lines',
             name='Forecast',
             line=dict(color='#FF6B6B', width=2, dash='dash')
         ))
         
         # Confidence interval
-        future_lower = forecast['yhat_lower'][len(df_prophet):]
-        future_upper = forecast['yhat_upper'][len(df_prophet):]
-        
         fig.add_trace(go.Scatter(
-            x=future_dates,
-            y=future_upper,
+            x=future_forecast_data['ds'],
+            y=future_forecast_data['yhat_upper'],
             mode='lines',
             name='Upper Bound',
             line=dict(width=0),
@@ -247,8 +261,8 @@ if train_button:
         ))
         
         fig.add_trace(go.Scatter(
-            x=future_dates,
-            y=future_lower,
+            x=future_forecast_data['ds'],
+            y=future_forecast_data['yhat_lower'],
             mode='lines',
             name='Confidence Interval',
             fill='tonexty',
@@ -257,7 +271,7 @@ if train_button:
         ))
         
         fig.update_layout(
-            title=f"{ticker} Stock Price Forecast",
+            title=f"{ticker_display} Stock Price Forecast",
             xaxis_title="Date",
             yaxis_title="Price (USD)",
             hovermode='x unified',
@@ -269,13 +283,21 @@ if train_button:
         
         # Forecast table
         st.markdown("### 📋 Forecast Details")
+        
+        # Add mode indicator BEFORE table
+        if use_demo:
+            st.warning("⚠️ **Demo Mode** - Simulated predictions for demonstration purposes.")
+        else:
+            st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
+        
+        # Create forecast dataframe
         forecast_df = pd.DataFrame({
-            'Date': future_dates.dt.strftime('%Y-%m-%d'),
-            'Predicted Price': future_pred.round(2),
-            'Lower Bound': future_lower.round(2),
-            'Upper Bound': future_upper.round(2),
-            'Change from Last': (future_pred - df_prophet['y'].iloc[-1]).round(2),
-            'Change %': ((future_pred - df_prophet['y'].iloc[-1]) / df_prophet['y'].iloc[-1] * 100).round(2)
+            'Date': future_forecast_data['ds'].dt.strftime('%Y-%m-%d').values,
+            'Predicted Price': future_forecast_data['yhat'].round(2).values,
+            'Lower Bound': future_forecast_data['yhat_lower'].round(2).values,
+            'Upper Bound': future_forecast_data['yhat_upper'].round(2).values,
+            'Change from Last': (future_forecast_data['yhat'].values - df_prophet['y'].iloc[-1]).round(2),
+            'Change %': ((future_forecast_data['yhat'].values - df_prophet['y'].iloc[-1]) / df_prophet['y'].iloc[-1] * 100).round(2)
         })
         
         st.dataframe(forecast_df, use_container_width=True)
