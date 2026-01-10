@@ -4,4 +4,4 @@ numpy
 yfinance
 plotly
 prophet
-scikit-learn==1.4.0
+scikit-learn
