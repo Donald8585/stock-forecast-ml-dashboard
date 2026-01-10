@@ -84,7 +84,7 @@ with st.sidebar:
 # Main content
 if train_button:
     try:
-        with st.spinner(f"📥 Downloading {ticker} data..."):
+                with st.spinner(f"📥 Downloading {ticker} data..."):
             # Download data with error handling
             try:
                 df = yf.download(ticker, start=start, end=end, progress=False)
@@ -106,13 +106,20 @@ if train_button:
                 st.info("💡 Try: GOOGL, MSFT, TSLA, NVDA, or wait a few seconds and retry")
                 st.stop()
             
-            # Prepare data for Prophet
+            # Prepare data for Prophet - Fixed version
+            # Ensure we have a simple DataFrame structure
+            df = df.copy()
+            if 'Close' not in df.columns:
+                # Handle MultiIndex columns
+                df.columns = df.columns.get_level_values(0)
+            
             df_prophet = pd.DataFrame({
-                'ds': df.index,
+                'ds': pd.to_datetime(df.index).tz_localize(None) if df.index.tz else pd.to_datetime(df.index),
                 'y': df['Close'].values
-            }).reset_index(drop=True)
+            })
             
             st.success(f"✅ Downloaded {len(df_prophet)} days of {ticker} data")
+
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
