@@ -84,42 +84,32 @@ with st.sidebar:
 # Main content
 if train_button:
     try:
-                with st.spinner(f"📥 Downloading {ticker} data..."):
-            # Download data with error handling
-            try:
-                df = yf.download(ticker, start=start, end=end, progress=False)
-                
-                # Check if download succeeded
-                if df.empty or len(df) < 10:
-                    st.error(f"❌ Failed to download data for {ticker}. Trying alternative method...")
-                    
-                    # Alternative: Use Ticker object
-                    stock = yf.Ticker(ticker)
-                    df = stock.history(start=start, end=end)
-                    
-                    if df.empty:
-                        st.error(f"❌ No data available for {ticker}. Please try: GOOGL, MSFT, TSLA, NVDA")
-                        st.stop()
-                        
-            except Exception as e:
-                st.error(f"❌ Download error: {str(e)}")
-                st.info("💡 Try: GOOGL, MSFT, TSLA, NVDA, or wait a few seconds and retry")
+        with st.spinner(f"📥 Downloading {ticker} data..."):
+            # Download data
+            df = yf.download(ticker, start=start, end=end, progress=False)
+            
+            if df.empty or len(df) < 10:
+                st.error(f"❌ No data available for {ticker}. Please try: GOOGL, MSFT, TSLA, NVDA")
                 st.stop()
             
-            # Prepare data for Prophet - Fixed version
-            # Ensure we have a simple DataFrame structure
-            df = df.copy()
-            if 'Close' not in df.columns:
-                # Handle MultiIndex columns
-                df.columns = df.columns.get_level_values(0)
+            # Prepare data for Prophet - Handle different DataFrame structures
+            df_clean = df.copy()
             
-            df_prophet = pd.DataFrame({
-                'ds': pd.to_datetime(df.index).tz_localize(None) if df.index.tz else pd.to_datetime(df.index),
-                'y': df['Close'].values
-            })
+            # Handle MultiIndex columns if present
+            if isinstance(df_clean.columns, pd.MultiIndex):
+                df_clean.columns = df_clean.columns.get_level_values(0)
+            
+            # Create Prophet dataframe
+            df_prophet = pd.DataFrame()
+            df_prophet['ds'] = pd.to_datetime(df_clean.index)
+            df_prophet['y'] = df_clean['Close'].values
+            df_prophet = df_prophet.reset_index(drop=True)
+            
+            # Remove timezone if present
+            if df_prophet['ds'].dt.tz is not None:
+                df_prophet['ds'] = df_prophet['ds'].dt.tz_localize(None)
             
             st.success(f"✅ Downloaded {len(df_prophet)} days of {ticker} data")
-
         
         # Display metrics
         col1, col2, col3, col4 = st.columns(4)
