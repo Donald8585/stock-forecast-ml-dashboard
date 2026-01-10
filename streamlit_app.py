@@ -51,7 +51,7 @@ with st.sidebar:
     st.markdown("### 🔧 Configuration")
     
     # Stock ticker selection
-    ticker = st.text_input("Stock Ticker", value="AAPL", help="Enter stock symbol (e.g., AAPL, GOOGL, TSLA)")
+    ticker = st.text_input("Stock Ticker", value="GOOGL", help="Enter stock symbol (e.g., GOOGL, MSFT, TSLA)")
     
     # Date range
     end_date = datetime.now()
@@ -78,38 +78,32 @@ with st.sidebar:
     """)
     
     st.markdown("### 🔗 Links")
-    st.markdown("- [GitHub Repo](https://github.com/Donald8585/time-series-forecast-dashboard)")
+    st.markdown("- [GitHub Repo](https://github.com/Donald8585/stock-forecast-ml-dashboard)")
     st.markdown("- [LinkedIn](https://linkedin.com/in/alfred-so)")
 
 # Main content
 if train_button:
     try:
         with st.spinner(f"📥 Downloading {ticker} data..."):
-            # Download data
-            # Download data with better error handling
-try:
-    df = yf.download(ticker, start=start, end=end, progress=False)
-    
-    # Check if download succeeded
-    if df.empty or len(df) < 10:
-        st.error(f"❌ Failed to download data for {ticker}. Trying alternative method...")
-        
-        # Alternative: Use Ticker object
-        stock = yf.Ticker(ticker)
-        df = stock.history(start=start, end=end)
-        
-        if df.empty:
-            st.error(f"❌ No data available for {ticker}. Please try a different ticker (e.g., GOOGL, MSFT, TSLA)")
-            st.stop()
-            
-except Exception as e:
-    st.error(f"❌ Download error: {str(e)}")
-    st.info("💡 Try: GOOGL, MSFT, TSLA, NVDA, or wait a few seconds and retry")
-    st.stop()
-
-            
-            if df.empty:
-                st.error(f"❌ No data found for {ticker}. Please check the ticker symbol.")
+            # Download data with error handling
+            try:
+                df = yf.download(ticker, start=start, end=end, progress=False)
+                
+                # Check if download succeeded
+                if df.empty or len(df) < 10:
+                    st.error(f"❌ Failed to download data for {ticker}. Trying alternative method...")
+                    
+                    # Alternative: Use Ticker object
+                    stock = yf.Ticker(ticker)
+                    df = stock.history(start=start, end=end)
+                    
+                    if df.empty:
+                        st.error(f"❌ No data available for {ticker}. Please try: GOOGL, MSFT, TSLA, NVDA")
+                        st.stop()
+                        
+            except Exception as e:
+                st.error(f"❌ Download error: {str(e)}")
+                st.info("💡 Try: GOOGL, MSFT, TSLA, NVDA, or wait a few seconds and retry")
                 st.stop()
             
             # Prepare data for NeuralProphet
@@ -151,7 +145,6 @@ except Exception as e:
                 yearly_seasonality=True,
                 weekly_seasonality=True,
                 daily_seasonality=False,
-                # changepoint_prior_scale=0.05,
             )
             
             # Train with progress
@@ -215,27 +208,6 @@ except Exception as e:
             line=dict(color='#FF6B6B', width=2, dash='dash')
         ))
         
-        # Forecast confidence interval (if available)
-        if 'yhat1_lower' in forecast.columns and 'yhat1_upper' in forecast.columns:
-            fig.add_trace(go.Scatter(
-                x=future_dates,
-                y=forecast['yhat1_upper'][len(df_prophet):],
-                mode='lines',
-                name='Upper Bound',
-                line=dict(width=0),
-                showlegend=False
-            ))
-            
-            fig.add_trace(go.Scatter(
-                x=future_dates,
-                y=forecast['yhat1_lower'][len(df_prophet):],
-                mode='lines',
-                name='Confidence Interval',
-                fill='tonexty',
-                fillcolor='rgba(255, 107, 107, 0.2)',
-                line=dict(width=0)
-            ))
-        
         fig.update_layout(
             title=f"{ticker} Stock Price Forecast",
             xaxis_title="Date",
@@ -281,7 +253,7 @@ else:
     with col1:
         st.markdown("""
         **1️⃣ Select Stock**
-        - Enter ticker symbol (AAPL, GOOGL, TSLA, etc.)
+        - Enter ticker symbol
         - Choose date range
         - Set forecast period
         """)
@@ -290,7 +262,7 @@ else:
         st.markdown("""
         **2️⃣ Train Model**
         - Downloads historical data
-        - Trains NeuralProphet model
+        - Trains NeuralProphet
         - Validates on test set
         """)
     
@@ -301,6 +273,19 @@ else:
         - Performance metrics
         - Download predictions
         """)
+    
+    st.markdown("---")
+    st.markdown("### 💡 Suggested Stock Tickers")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.code("GOOGL\nAlphabet")
+    with col2:
+        st.code("MSFT\nMicrosoft")
+    with col3:
+        st.code("TSLA\nTesla")
+    with col4:
+        st.code("NVDA\nNVIDIA")
 
 # Footer
 st.markdown("---")
