@@ -4,7 +4,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
-from neuralprophet import NeuralProphet
+from prophet import Prophet
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 import warnings
 warnings.filterwarnings('ignore')
@@ -44,7 +44,7 @@ st.markdown("""
 
 # Header
 st.markdown('<p class="main-header">📈 StockForecast</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">NeuralProphet Time Series Forecasting System</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Prophet Time Series Forecasting System</p>', unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
@@ -70,11 +70,11 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🧠 Model Info")
     st.info("""
-    **NeuralProphet**
-    - Deep learning time series
+    **Prophet (Meta)**
+    - Time series forecasting
     - Yearly + Weekly seasonality
-    - 50 epochs training
-    - Adaptive learning rate
+    - Handles missing data
+    - Production-ready
     """)
     
     st.markdown("### 🔗 Links")
@@ -106,7 +106,7 @@ if train_button:
                 st.info("💡 Try: GOOGL, MSFT, TSLA, NVDA, or wait a few seconds and retry")
                 st.stop()
             
-            # Prepare data for NeuralProphet
+            # Prepare data for Prophet
             df_prophet = pd.DataFrame({
                 'ds': df.index,
                 'y': df['Close'].values
@@ -136,19 +136,18 @@ if train_button:
         test_data = df_prophet[split_idx:].copy()
         
         # Train model
-        with st.spinner("🤖 Training NeuralProphet model... (this takes ~30 seconds)"):
+        with st.spinner("🤖 Training Prophet model... (this takes ~20 seconds)"):
             progress_bar = st.progress(0)
             
-            model = NeuralProphet(
-                epochs=50,
-                learning_rate=0.01,
+            model = Prophet(
                 yearly_seasonality=True,
                 weekly_seasonality=True,
                 daily_seasonality=False,
+                changepoint_prior_scale=0.05
             )
             
-            # Train with progress
-            metrics = model.fit(train_data, freq='D', progress=None)
+            # Train
+            model.fit(train_data)
             progress_bar.progress(100)
             
             st.success("✅ Model training complete!")
@@ -158,7 +157,7 @@ if train_button:
         
         # Calculate metrics
         y_true = test_data['y'].values
-        y_pred = test_forecast['yhat1'].values
+        y_pred = test_forecast['yhat'].values
         
         mape = mean_absolute_percentage_error(y_true, y_pred) * 100
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
@@ -179,7 +178,7 @@ if train_button:
         
         # Future forecast
         with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
-            future = model.make_future_dataframe(df_prophet, periods=forecast_days, n_historic_predictions=len(df_prophet))
+            future = model.make_future_dataframe(periods=forecast_days)
             forecast = model.predict(future)
         
         # Plot
@@ -198,7 +197,7 @@ if train_button:
         
         # Forecast
         future_dates = forecast['ds'][len(df_prophet):]
-        future_pred = forecast['yhat1'][len(df_prophet):]
+        future_pred = forecast['yhat'][len(df_prophet):]
         
         fig.add_trace(go.Scatter(
             x=future_dates,
@@ -206,6 +205,29 @@ if train_button:
             mode='lines',
             name='Forecast',
             line=dict(color='#FF6B6B', width=2, dash='dash')
+        ))
+        
+        # Confidence interval
+        future_lower = forecast['yhat_lower'][len(df_prophet):]
+        future_upper = forecast['yhat_upper'][len(df_prophet):]
+        
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=future_upper,
+            mode='lines',
+            name='Upper Bound',
+            line=dict(width=0),
+            showlegend=False
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=future_lower,
+            mode='lines',
+            name='Confidence Interval',
+            fill='tonexty',
+            fillcolor='rgba(255, 107, 107, 0.2)',
+            line=dict(width=0)
         ))
         
         fig.update_layout(
@@ -224,6 +246,8 @@ if train_button:
         forecast_df = pd.DataFrame({
             'Date': future_dates.dt.strftime('%Y-%m-%d'),
             'Predicted Price': future_pred.round(2),
+            'Lower Bound': future_lower.round(2),
+            'Upper Bound': future_upper.round(2),
             'Change from Last': (future_pred - df_prophet['y'].iloc[-1]).round(2),
             'Change %': ((future_pred - df_prophet['y'].iloc[-1]) / df_prophet['y'].iloc[-1] * 100).round(2)
         })
@@ -262,7 +286,7 @@ else:
         st.markdown("""
         **2️⃣ Train Model**
         - Downloads historical data
-        - Trains NeuralProphet
+        - Trains Prophet model
         - Validates on test set
         """)
     
