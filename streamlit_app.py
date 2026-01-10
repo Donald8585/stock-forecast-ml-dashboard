@@ -218,17 +218,15 @@ if train_button:
         
         st.markdown("---")
         
-                # Future forecast
+        # Future forecast
         with st.spinner(f"🔮 Forecasting next {forecast_days} days..."):
+            # Create future dataframe
             future = model.make_future_dataframe(periods=forecast_days)
             forecast = model.predict(future)
-        
-        # Get ONLY future predictions - USE DATE COMPARISON
-        last_historical_date = df_prophet['ds'].max()
-        future_forecast_df = forecast[forecast['ds'] > last_historical_date].copy()
-        
-        # Take only the requested forecast days
-        future_forecast_df = future_forecast_df.head(forecast_days).reset_index(drop=True)
+            
+            # Get only the LAST forecast_days rows (these are the future predictions)
+            future_forecast_df = forecast.tail(forecast_days).copy()
+            future_forecast_df = future_forecast_df.reset_index(drop=True)
         
         # Plot
         st.markdown(f"### 📈 {ticker_display} Price Forecast")
@@ -253,7 +251,7 @@ if train_button:
             line=dict(color='#FF6B6B', width=2, dash='dash')
         ))
         
-        # Confidence interval
+        # Confidence interval upper
         fig.add_trace(go.Scatter(
             x=future_forecast_df['ds'],
             y=future_forecast_df['yhat_upper'],
@@ -263,6 +261,7 @@ if train_button:
             showlegend=False
         ))
         
+        # Confidence interval lower
         fig.add_trace(go.Scatter(
             x=future_forecast_df['ds'],
             y=future_forecast_df['yhat_lower'],
@@ -287,40 +286,35 @@ if train_button:
         # Forecast table
         st.markdown("### 📋 Forecast Details")
         
-        # Add mode indicator BEFORE table
+        # Add mode indicator
         if use_demo:
             st.warning("⚠️ **Demo Mode** - Simulated predictions for demonstration purposes.")
         else:
             st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
         
-        # Create forecast dataframe
-        if len(future_forecast_df) == 0:
-            st.error("❌ No future predictions available. Try adjusting the date range.")
-            forecast_table = pd.DataFrame()  # Empty dataframe to avoid NameError
-        else:
-            last_price = df_prophet['y'].iloc[-1]
-            
-            forecast_table = pd.DataFrame({
-                'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
-                'Predicted Price': future_forecast_df['yhat'].round(2),
-                'Lower Bound': future_forecast_df['yhat_lower'].round(2),
-                'Upper Bound': future_forecast_df['yhat_upper'].round(2),
-                'Change from Last': (future_forecast_df['yhat'] - last_price).round(2),
-                'Change %': ((future_forecast_df['yhat'] - last_price) / last_price * 100).round(2)
-            })
-            
-            forecast_table = forecast_table.reset_index(drop=True)
-            st.dataframe(forecast_table, use_container_width=True)
+        # Create forecast table
+        last_price = df_prophet['y'].iloc[-1]
         
-        # Download button - only show if table has data
-        if len(forecast_table) > 0:
-            csv = forecast_table.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Forecast CSV",
-                data=csv,
-                file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime='text/csv'
-            )
+        forecast_table = pd.DataFrame({
+            'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
+            'Predicted Price': future_forecast_df['yhat'].round(2),
+            'Lower Bound': future_forecast_df['yhat_lower'].round(2),
+            'Upper Bound': future_forecast_df['yhat_upper'].round(2),
+            'Change from Last': (future_forecast_df['yhat'].values - last_price).round(2),
+            'Change %': ((future_forecast_df['yhat'].values - last_price) / last_price * 100).round(2)
+        })
+        
+        st.dataframe(forecast_table, use_container_width=True)
+        
+        # Download button
+        csv = forecast_table.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Forecast CSV",
+            data=csv,
+            file_name=f"{ticker}_forecast_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime='text/csv'
+        )
+
 
         
     except Exception as e:
