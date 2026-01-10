@@ -183,9 +183,10 @@ if train_button:
             
             model = Prophet(
                 yearly_seasonality=True,
-                weekly_seasonality=True,
+                weekly_seasonality=False,  # ✅ DISABLED for smoother forecast
                 daily_seasonality=False,
-                changepoint_prior_scale=0.05
+                changepoint_prior_scale=0.01,  # ✅ Less sensitive to trends
+                seasonality_mode='multiplicative'  # ✅ Better for stocks
             )
             
             # Train
@@ -193,6 +194,7 @@ if train_button:
             progress_bar.progress(100)
             
             st.success("✅ Model training complete!")
+
         
         # Make predictions on test set
         test_forecast = model.predict(test_data)
