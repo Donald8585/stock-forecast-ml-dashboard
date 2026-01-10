@@ -281,7 +281,7 @@ if train_button:
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Forecast table
+                # Forecast table - DEBUG VERSION
         st.markdown("### 📋 Forecast Details")
         
         # Add mode indicator BEFORE table
@@ -290,22 +290,39 @@ if train_button:
         else:
             st.info(f"✅ **Live Data** - Real {ticker} stock predictions from Yahoo Finance.")
         
+        # DEBUG: Print shapes and lengths
+        st.write(f"DEBUG: len(df_prophet) = {len(df_prophet)}")
+        st.write(f"DEBUG: len(forecast) = {len(forecast)}")
+        st.write(f"DEBUG: forecast_days = {forecast_days}")
+        st.write(f"DEBUG: historical_end = {historical_end}")
+        st.write(f"DEBUG: Slicing range: {historical_end} to {historical_end + forecast_days}")
+        st.write(f"DEBUG: len(future_forecast_df) = {len(future_forecast_df)}")
+        st.write(f"DEBUG: future_forecast_df shape = {future_forecast_df.shape}")
+        
+        # Show first few rows of future_forecast_df
+        st.write("DEBUG: future_forecast_df head:")
+        st.dataframe(future_forecast_df.head())
+        
         # Create forecast dataframe
         last_price = df_prophet['y'].iloc[-1]
         
-        forecast_table = pd.DataFrame({
-            'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
-            'Predicted Price': future_forecast_df['yhat'].round(2),
-            'Lower Bound': future_forecast_df['yhat_lower'].round(2),
-            'Upper Bound': future_forecast_df['yhat_upper'].round(2),
-            'Change from Last': (future_forecast_df['yhat'] - last_price).round(2),
-            'Change %': ((future_forecast_df['yhat'] - last_price) / last_price * 100).round(2)
-        })
-        
-        # Reset index so it displays nicely
-        forecast_table = forecast_table.reset_index(drop=True)
-        
-        st.dataframe(forecast_table, use_container_width=True)
+        if len(future_forecast_df) == 0:
+            st.error("❌ future_forecast_df is EMPTY! Check slicing logic.")
+        else:
+            forecast_table = pd.DataFrame({
+                'Date': future_forecast_df['ds'].dt.strftime('%Y-%m-%d'),
+                'Predicted Price': future_forecast_df['yhat'].round(2),
+                'Lower Bound': future_forecast_df['yhat_lower'].round(2),
+                'Upper Bound': future_forecast_df['yhat_upper'].round(2),
+                'Change from Last': (future_forecast_df['yhat'] - last_price).round(2),
+                'Change %': ((future_forecast_df['yhat'] - last_price) / last_price * 100).round(2)
+            })
+            
+            # Reset index so it displays nicely
+            forecast_table = forecast_table.reset_index(drop=True)
+            
+            st.dataframe(forecast_table, use_container_width=True)
+
         
         # Download button
         csv = forecast_table.to_csv(index=False)
