@@ -1,0 +1,14 @@
+prophet
+pandas
+numpy
+scikit-learn
+fastapi
+uvicorn[standard]
+streamlit
+plotly
+matplotlib
+yfinance
+python-multipart
+neuralprophet
+torch
+plotly
