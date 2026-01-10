@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 prophet
 pandas
 numpy
@@ -12,3 +13,12 @@ python-multipart
 neuralprophet
 torch
 plotly
+=======
+streamlit>=1.30
+pandas>=2.2
+numpy>=1.24
+plotly>=5.18
+scikit-learn>=1.4
+statsmodels>=0.14
+yfinance>=0.2.32
+>>>>>>> 749ceb72305e6cc9339a49efbe347074bb2f42d4
