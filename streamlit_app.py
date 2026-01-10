@@ -80,16 +80,16 @@ with st.sidebar:
     train_button = st.button("🚀 Train & Forecast", type="primary", use_container_width=True)
     
     st.markdown("---")
-    st.markdown("### 🧠 Model Info")
-    
-    if "LSTM" in model_type:
-        st.info("""
-        **LSTM (Deep Learning)**
-        - Lightning-fast custom training
-        - <1 second inference (pre-trained)
-        - ⚡ 10-second training
-        - High accuracy for stocks
-        """)
+    st.markdown("""
+    ### 🧠 Model Info
+    **LSTM (Deep Learning)**
+    - ⚡ Lightning-fast training: ~20 seconds
+    - 🎯 Custom model per stock ticker
+    - 📊 Trains on your selected date range
+    - 🔄 Always uses latest market data
+    - 🧠 3-layer LSTM architecture
+    """)
+
     else:
         st.info("""
         **Prophet (Meta)**
@@ -169,7 +169,8 @@ if train_button:
                     predictions = lstm_model.predict_future(prices, forecast_days)
                     st.success("✅ Forecast complete!")
             else:
-                st.warning(f"⚠️ No pre-trained model for {ticker}. Training new model (2-5 mins)...")
+                st.warning(f"⚠️ No pre-trained model for {ticker}. Training new model (~20 seconds)...")
+
                 
                 # Train new model
                 with st.spinner(f"🤖 Training LSTM model for {ticker}... (this may take 2-5 minutes)"):
