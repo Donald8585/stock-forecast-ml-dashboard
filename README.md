@@ -1,3 +1,21 @@
+---
+title: StockForecast - AI Time Series Prediction
+emoji: 📈
+colorFrom: blue
+colorTo: purple
+sdk: streamlit
+sdk_version: 1.30.0
+app_file: app.py
+pinned: false
+tags:
+  - time-series
+  - lstm
+  - prophet
+  - stock-prediction
+  - forecasting
+license: mit
+short_description: LSTM & Prophet stock price forecasting dashboard
+---
 # 📈 Stock Price Forecasting Dashboard Pro
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://stock-forecast-donald8585.streamlit.app)
